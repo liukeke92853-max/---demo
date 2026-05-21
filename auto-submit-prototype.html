@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自动提报配置原型</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-width: 1200px;
+      background: #f5f7fb;
+      color: #252a33;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 14px;
+    }
+
+    .page {
+      padding: 12px 16px 36px;
+    }
+
+    .activity-card {
+      min-height: 260px;
+      overflow: hidden;
+      border-radius: 0 0 14px 14px;
+      background: #f3f6fb;
+    }
+
+    .activity-header {
+      display: flex;
+      align-items: center;
+      height: 54px;
+      padding: 0 18px;
+      background: #fafcff;
+      color: #738095;
+    }
+
+    .title-dot {
+      width: 4px;
+      height: 16px;
+      margin-right: 10px;
+      border-radius: 2px;
+      background: #2f65ff;
+    }
+
+    .activity-title {
+      color: #252a33;
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .id-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 22px;
+      min-width: 30px;
+      margin: 0 28px 0 10px;
+      border-radius: 6px;
+      background: #eef3fb;
+      color: #8b97aa;
+      font-size: 12px;
+    }
+
+    .deadline {
+      color: #77849a;
+      font-size: 15px;
+    }
+
+    .header-actions {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+
+    .plain-link {
+      border: 0;
+      background: transparent;
+      color: #2e62ff;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .plain-link:hover {
+      text-decoration: underline;
+    }
+
+    .auto-submit {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #606b7f;
+    }
+
+    .auto-submit-label {
+      font-size: 15px;
+    }
+
+    .switch {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      border: 0;
+      border-radius: 999px;
+      background: #d5dbe6;
+      cursor: pointer;
+      transition: background .2s ease;
+    }
+
+    .switch::after {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(42, 55, 78, .18);
+      content: "";
+      transition: transform .2s ease;
+    }
+
+    .switch.is-on {
+      background: #2f65ff;
+    }
+
+    .switch.is-on::after {
+      transform: translateX(16px);
+    }
+
+    .favorite {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #606b7f;
+      font-size: 15px;
+    }
+
+    .star {
+      color: #7d8aa2;
+      font-size: 18px;
+    }
+
+    .activity-body {
+      display: grid;
+      grid-template-columns: minmax(420px, 1.4fr) repeat(5, minmax(110px, 1fr)) 160px;
+      gap: 18px;
+      align-items: center;
+      min-height: 206px;
+      padding: 34px 18px;
+    }
+
+    .info-block {
+      align-self: start;
+      padding-top: 8px;
+      color: #79869b;
+      line-height: 1.8;
+    }
+
+    .leader {
+      margin-bottom: 12px;
+      color: #252a33;
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .leader .id-tag {
+      margin-right: 0;
+    }
+
+    .requirement {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0;
+      max-width: 470px;
+      color: #5a6678;
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    .contact {
+      margin-top: 6px;
+      color: #8995a8;
+      font-size: 15px;
+    }
+
+    .metric {
+      text-align: center;
+    }
+
+    .metric-value {
+      margin-bottom: 10px;
+      color: #252a33;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .metric-label {
+      color: #8995a8;
+      font-size: 15px;
+    }
+
+    .action-column {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      justify-self: end;
+      width: 154px;
+    }
+
+    .outline-btn {
+      height: 38px;
+      border: 1px solid #2f65ff;
+      border-radius: 5px;
+      background: #fff;
+      color: #1f5cff;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .close-confirm-mask {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(17, 25, 40, .34);
+    }
+
+    .close-confirm-mask.is-show {
+      display: flex;
+    }
+
+    .close-dialog {
+      width: 420px;
+      padding: 24px 28px 22px;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 18px 48px rgba(20, 32, 58, .22);
+      color: #596579;
+      line-height: 1.5;
+    }
+
+    .popover-title {
+      margin-bottom: 12px;
+      color: #252a33;
+      font-weight: 600;
+      font-size: 18px;
+    }
+
+    .popover-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    .mini-btn {
+      height: 36px;
+      padding: 0 18px;
+      border-radius: 4px;
+      border: 1px solid #d7dde8;
+      background: #fff;
+      color: #596579;
+      cursor: pointer;
+    }
+
+    .mini-btn.primary {
+      border-color: #2f65ff;
+      background: #2f65ff;
+      color: #fff;
+    }
+
+    .modal-mask {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(17, 25, 40, .34);
+    }
+
+    .modal-mask.is-show {
+      display: flex;
+    }
+
+    .modal {
+      width: 858px;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 18px 48px rgba(20, 32, 58, .22);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 102px;
+      padding: 0 36px;
+      background: #f2f6fc;
+    }
+
+    .modal-title {
+      color: #252a33;
+      font-size: 30px;
+      font-weight: 700;
+    }
+
+    .close-btn {
+      border: 0;
+      background: transparent;
+      color: #c7cdd8;
+      font-size: 46px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .modal-body {
+      padding: 32px 50px 18px;
+    }
+
+    .notice {
+      margin-bottom: 34px;
+      padding: 22px 24px;
+      border-radius: 6px;
+      background: #eef5ff;
+      color: #6f7c92;
+      font-size: 28px;
+      line-height: 1.6;
+    }
+
+    .form-row {
+      margin-bottom: 34px;
+    }
+
+    .field-label {
+      margin-bottom: 24px;
+      color: #252a33;
+      font-size: 28px;
+    }
+
+    .required {
+      margin-right: 8px;
+      color: #ff3b35;
+    }
+
+    .option-line {
+      display: flex;
+      align-items: center;
+      gap: 46px;
+      padding-left: 10px;
+    }
+
+    .check-option,
+    .radio-option {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: #252a33;
+      font-size: 28px;
+      cursor: pointer;
+    }
+
+    input[type="checkbox"],
+    input[type="radio"] {
+      width: 28px;
+      height: 28px;
+      accent-color: #2f65ff;
+      cursor: pointer;
+    }
+
+    .ratio-tabs {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      width: 483px;
+      height: 64px;
+      margin-top: 24px;
+      border-radius: 3px;
+      background: #f1f2f4;
+      overflow: hidden;
+    }
+
+    .ratio-tab {
+      position: relative;
+      border: 0;
+      background: transparent;
+      color: #596579;
+      font-size: 28px;
+      cursor: pointer;
+    }
+
+    .ratio-tab + .ratio-tab::before {
+      position: absolute;
+      top: 19px;
+      left: 0;
+      width: 1px;
+      height: 26px;
+      background: #dee3ec;
+      content: "";
+    }
+
+    .ratio-tab.is-active {
+      margin: 7px 0;
+      border-radius: 4px;
+      background: #fff;
+      color: #1f5cff;
+    }
+
+    .phone-input {
+      width: 440px;
+      height: 64px;
+      padding: 0 24px;
+      border: 1px solid #d7dde8;
+      border-radius: 5px;
+      color: #252a33;
+      font-size: 28px;
+      outline: none;
+    }
+
+    .phone-input:focus {
+      border-color: #2f65ff;
+      box-shadow: 0 0 0 3px rgba(47, 101, 255, .12);
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 24px;
+      margin: 8px 50px 0;
+      padding: 26px 0 18px;
+      border-top: 1px solid #e0e4ec;
+    }
+
+    .modal-btn {
+      height: 64px;
+      min-width: 120px;
+      padding: 0 28px;
+      border-radius: 8px;
+      border: 1px solid #d7dde8;
+      background: #fff;
+      color: #252a33;
+      font-size: 28px;
+      cursor: pointer;
+    }
+
+    .modal-btn.primary {
+      border-color: #2f65ff;
+      background: #2f65ff;
+      color: #fff;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 36px;
+      z-index: 80;
+      display: none;
+      min-width: 220px;
+      transform: translateX(-50%);
+      padding: 12px 18px;
+      border-radius: 6px;
+      background: rgba(28, 38, 56, .92);
+      color: #fff;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .toast.is-show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="activity-card">
+      <header class="activity-header">
+        <span class="title-dot"></span>
+        <span class="activity-title">哇哈哈优选-流量深耕,全域放量-FF8</span>
+        <span class="id-tag">ID</span>
+        <span class="deadline">报名截止时间: 2028-08-08</span>
+        <div class="header-actions">
+          <span>繁星精选</span>
+          <span class="auto-submit">
+            <span class="auto-submit-label">自动提报</span>
+            <button class="switch" id="autoSwitch" type="button" aria-label="自动提报开关"></button>
+            <button class="plain-link" id="editConfig" type="button" hidden>修改</button>
+          </span>
+          <span class="favorite"><span class="star">☆</span> 收藏活动</span>
+          <div class="close-confirm-mask" id="closeConfirmMask">
+            <div class="close-dialog" role="dialog" aria-modal="true" aria-labelledby="closeConfirmTitle">
+              <div class="popover-title" id="closeConfirmTitle">确认关闭自动提报？</div>
+              <div>关闭后将不再每日自动提报，当前配置会保留，重新开启时可继续修改。</div>
+              <div class="popover-actions">
+                <button class="mini-btn" id="cancelClose" type="button">取消</button>
+                <button class="mini-btn primary" id="confirmClose" type="button">确认关闭</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="activity-body">
+        <div class="info-block">
+          <div class="leader">团长: 哇哈哈优选 <span class="id-tag">ID</span></div>
+          <div class="requirement">
+            <span>活动要求: </span>
+            <span>保持机制 高佣优先 报名时长拉满 保证达人不下链接，团长请勿报名!</span>
+          </div>
+          <div class="contact">联系方式: --</div>
+        </div>
+
+        <div class="metric">
+          <div class="metric-value">5%</div>
+          <div class="metric-label">最低佣金</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">0%</div>
+          <div class="metric-label">最低服务费</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">0次</div>
+          <div class="metric-label">活动已报名</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">0次</div>
+          <div class="metric-label">活动已通过</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">0%</div>
+          <div class="metric-label">活动通过率</div>
+        </div>
+
+        <div class="action-column">
+          <button class="outline-btn" type="button">指定商品提报</button>
+          <button class="outline-btn" type="button">全部商品提报</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-mask" id="modalMask">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-header">
+        <div class="modal-title" id="modalTitle">自动提报-哇哈哈优选-流量深耕,全域放量-FF8</div>
+        <button class="close-btn" id="closeModal" type="button" aria-label="关闭">×</button>
+      </header>
+
+      <div class="modal-body">
+        <div class="notice">
+          <div>1. 提报时会将已配置的不提报商品做过滤</div>
+          <div>2. 自动提报将于每日19:00进行操作</div>
+        </div>
+
+        <div class="form-row">
+          <div class="field-label"><span class="required">*</span>提报商品</div>
+          <div class="option-line">
+            <label class="check-option">
+              <input id="normalGoods" type="checkbox" checked>
+              <span>普通商品</span>
+            </label>
+            <label class="check-option">
+              <input id="managedGoods" type="checkbox" checked>
+              <span>托管商品</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field-label"><span class="required">*</span>服务费分成比例</div>
+          <div class="option-line">
+            <label class="radio-option">
+              <input type="radio" name="ratioType" value="fixed" checked>
+              <span>固定分成</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="ratioType" value="custom">
+              <span>自定义</span>
+            </label>
+          </div>
+          <div class="ratio-tabs" id="ratioTabs">
+            <button class="ratio-tab" type="button" data-ratio="1:9">1:9</button>
+            <button class="ratio-tab is-active" type="button" data-ratio="2:8">2:8</button>
+            <button class="ratio-tab" type="button" data-ratio="3:7">3:7</button>
+            <button class="ratio-tab" type="button" data-ratio="4:6">4:6</button>
+            <button class="ratio-tab" type="button" data-ratio="5:5">5:5</button>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field-label"><span class="required">*</span>联系方式</div>
+          <input class="phone-input" id="phoneInput" type="text" value="18618267721">
+        </div>
+      </div>
+
+      <footer class="modal-footer">
+        <button class="modal-btn" id="cancelModal" type="button">取消</button>
+        <button class="modal-btn primary" id="saveConfig" type="button">确认</button>
+      </footer>
+    </section>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const state = {
+      enabled: false,
+      goods: ["normal", "managed"],
+      ratioType: "fixed",
+      ratio: "2:8",
+      phone: "18618267721"
+    };
+
+    const autoSwitch = document.querySelector("#autoSwitch");
+    const editConfig = document.querySelector("#editConfig");
+    const closeConfirmMask = document.querySelector("#closeConfirmMask");
+    const modalMask = document.querySelector("#modalMask");
+    const closeModal = document.querySelector("#closeModal");
+    const cancelModal = document.querySelector("#cancelModal");
+    const saveConfig = document.querySelector("#saveConfig");
+    const normalGoods = document.querySelector("#normalGoods");
+    const managedGoods = document.querySelector("#managedGoods");
+    const phoneInput = document.querySelector("#phoneInput");
+    const ratioTabs = document.querySelector("#ratioTabs");
+    const toast = document.querySelector("#toast");
+    let toastTimer = null;
+
+    function renderHeader() {
+      autoSwitch.classList.toggle("is-on", state.enabled);
+      editConfig.hidden = !state.enabled;
+    }
+
+    function fillForm() {
+      normalGoods.checked = state.goods.includes("normal");
+      managedGoods.checked = state.goods.includes("managed");
+      phoneInput.value = state.phone;
+      document.querySelector(`input[name="ratioType"][value="${state.ratioType}"]`).checked = true;
+      document.querySelectorAll(".ratio-tab").forEach((item) => {
+        item.classList.toggle("is-active", item.dataset.ratio === state.ratio);
+      });
+      saveConfig.textContent = state.enabled ? "保存修改" : "确认";
+    }
+
+    function openModal() {
+      closeConfirmMask.classList.remove("is-show");
+      fillForm();
+      modalMask.classList.add("is-show");
+    }
+
+    function hideModal() {
+      modalMask.classList.remove("is-show");
+    }
+
+    function showToast(text) {
+      toast.textContent = text;
+      toast.classList.add("is-show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("is-show"), 1800);
+    }
+
+    function readForm() {
+      const goods = [];
+      if (normalGoods.checked) goods.push("normal");
+      if (managedGoods.checked) goods.push("managed");
+      const ratioType = document.querySelector("input[name='ratioType']:checked").value;
+      const activeRatio = document.querySelector(".ratio-tab.is-active").dataset.ratio;
+      return {
+        goods,
+        ratioType,
+        ratio: activeRatio,
+        phone: phoneInput.value.trim()
+      };
+    }
+
+    autoSwitch.addEventListener("click", () => {
+      if (!state.enabled) {
+        openModal();
+        return;
+      }
+      closeConfirmMask.classList.add("is-show");
+    });
+
+    editConfig.addEventListener("click", openModal);
+    closeModal.addEventListener("click", hideModal);
+    cancelModal.addEventListener("click", hideModal);
+    modalMask.addEventListener("click", (event) => {
+      if (event.target === modalMask) hideModal();
+    });
+
+    closeConfirmMask.addEventListener("click", (event) => {
+      if (event.target === closeConfirmMask) closeConfirmMask.classList.remove("is-show");
+    });
+
+    ratioTabs.addEventListener("click", (event) => {
+      const target = event.target.closest(".ratio-tab");
+      if (!target) return;
+      document.querySelectorAll(".ratio-tab").forEach((item) => item.classList.remove("is-active"));
+      target.classList.add("is-active");
+    });
+
+    saveConfig.addEventListener("click", () => {
+      const formData = readForm();
+      if (!formData.goods.length) {
+        showToast("请至少选择一种提报商品");
+        return;
+      }
+      if (!formData.phone) {
+        showToast("请填写联系方式");
+        return;
+      }
+      Object.assign(state, formData, { enabled: true });
+      renderHeader();
+      hideModal();
+      showToast(saveConfig.textContent === "确认" ? "已开启自动提报" : "已保存自动提报配置");
+    });
+
+    document.querySelector("#cancelClose").addEventListener("click", () => {
+      closeConfirmMask.classList.remove("is-show");
+    });
+
+    document.querySelector("#confirmClose").addEventListener("click", () => {
+      state.enabled = false;
+      closeConfirmMask.classList.remove("is-show");
+      renderHeader();
+      showToast("已关闭自动提报");
+    });
+
+    document.addEventListener("click", (event) => {
+      const inAutoSubmit = event.target.closest(".header-actions");
+      if (!inAutoSubmit) closeConfirmMask.classList.remove("is-show");
+    });
+
+    renderHeader();
+  </script>
+</body>
+</html>
