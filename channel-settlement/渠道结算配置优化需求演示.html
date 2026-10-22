@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>渠道结算配置优化 · 交互演示与增量 PRD</title>
+  <link rel="stylesheet" href="样式.css">
+</head>
+<body>
+  <div class="review-bar">
+    <b>渠道结算配置优化 <span>V0.7</span></b>
+    <span class="review-dot"></span><span>交互演示 · 全部业务数据为模拟</span>
+    <div class="review-actions">
+      <span id="demo-month"></span>
+      <button id="open-simulation">演示当月月末重算</button>
+      <label>演示身份 <select id="role"><option value="operator">业务操作人</option><option value="approver">青椒 · 负责人</option></select></label>
+      <a href="渠道结算配置优化-增量PRD.html" target="_blank">完整 PRD ↗</a>
+      <button id="reset-demo">重置演示</button>
+    </div>
+  </div>
+  <header class="topbar"><div class="brand"><span class="brand-mark"><i></i><i></i><i></i></span>切片管理中心</div><div class="top-right"><span class="app-grid">▦</span><span class="user-avatar" id="user-avatar">木</span></div></header>
+  <div class="app-layout">
+    <aside class="rail" aria-label="系统模块">
+      <div>▥<span>数据</span></div><div>▣<span>IP</span></div><div>▧<span>KOC</span></div><div>▢<span>商品</span></div><div>▰<span>素材</span></div><div class="selected">◇<span>合作</span></div><div>⬡<span>设置</span></div><div>▤<span>AI创作</span></div><div>⌂<span>学习</span></div>
+    </aside>
+    <aside class="sidebar"><h2>渠道管理 <span>⌃</span></h2><button data-nav="channels">渠道列表</button><div class="nav-static">邀约管理</div><div class="nav-static">渠道订单</div><button data-nav="settlement" class="active">渠道结算</button><h2 class="secondary-nav">工作室管理 <span>⌃</span></h2><div class="nav-static">工作室列表</div><div class="side-note">当前仅复刻本次需求相关页面</div></aside>
+    <main>
+      <div id="page"></div>
+      <section class="prd-shell" id="page-prd" aria-label="当前页面增量PRD"></section>
+      <footer class="page-footer">渠道结算配置优化 · 基于系统截图、历史原型与本地后端代码复刻 · 本地模拟，刷新恢复初始数据</footer>
+    </main>
+  </div>
+  <dialog id="main-dialog" aria-labelledby="dialog-title"><div class="dialog-head"><h2 id="dialog-title"></h2><button data-close aria-label="关闭弹窗">×</button></div><div id="dialog-body"></div><div class="dialog-footer" id="dialog-footer"></div></dialog>
+  <aside class="metric-popover" id="metric-popover" hidden><h3>▤ 指标说明</h3><div><b>总订单</b><p>筛选条件下，所有渠道订单数之和</p><b>可分成金额</b><p>筛选条件下，所有渠道可分成金额之和</p><b>总提成</b><p>筛选条件下，所有渠道提成金额之和</p></div></aside>
+  <div id="toast" role="status" hidden></div>
+  <script src="需求说明.js"></script><script src="等级规则.js"></script>
+  <script src="推广位结算.js"></script><script src="交互.js"></script>
+</body>
+</html>
