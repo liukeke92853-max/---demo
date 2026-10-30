@@ -4,17 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>渠道结算配置优化 · 交互演示与增量 PRD</title>
-  <link rel="stylesheet" href="样式.css">
+  <link rel="stylesheet" href="样式.css?v=20261030-663dc0552c">
 </head>
 <body>
   <div class="review-bar">
-    <b>渠道结算配置优化 <span>V0.7</span></b>
+    <b>渠道结算配置优化 <span>V0.9</span></b>
     <span class="review-dot"></span><span>交互演示 · 全部业务数据为模拟</span>
     <div class="review-actions">
       <span id="demo-month"></span>
-      <button id="open-simulation">演示当月月末重算</button>
+      <label>演示日期 <input id="demo-date" type="date" aria-label="演示日期"></label>
+      <button id="preview-approval-messages" data-action="approval-messages" hidden>负责人飞书消息</button>
+      <button id="open-simulation">演示次月自动调档</button>
       <label>演示身份 <select id="role"><option value="operator">业务操作人</option><option value="approver">青椒 · 负责人</option></select></label>
-      <a href="渠道结算配置优化-增量PRD.html" target="_blank">完整 PRD ↗</a>
+      <a href="渠道结算配置优化-增量PRD.html?v=20261030-663dc0552c" target="_blank">完整 PRD ↗</a>
       <button id="reset-demo">重置演示</button>
     </div>
   </div>
@@ -33,7 +35,7 @@
   <dialog id="main-dialog" aria-labelledby="dialog-title"><div class="dialog-head"><h2 id="dialog-title"></h2><button data-close aria-label="关闭弹窗">×</button></div><div id="dialog-body"></div><div class="dialog-footer" id="dialog-footer"></div></dialog>
   <aside class="metric-popover" id="metric-popover" hidden><h3>▤ 指标说明</h3><div><b>总订单</b><p>筛选条件下，所有渠道订单数之和</p><b>可分成金额</b><p>筛选条件下，所有渠道可分成金额之和</p><b>总提成</b><p>筛选条件下，所有渠道提成金额之和</p></div></aside>
   <div id="toast" role="status" hidden></div>
-  <script src="需求说明.js"></script><script src="等级规则.js"></script>
-  <script src="推广位结算.js"></script><script src="交互.js"></script>
+  <script src="需求说明.js?v=20261030-663dc0552c"></script><script src="提成档位.js?v=20261030-663dc0552c"></script>
+  <script src="推广位结算.js?v=20261030-663dc0552c"></script><script src="变更记录.js?v=20261030-663dc0552c"></script><script src="飞书提醒.js?v=20261030-663dc0552c"></script><script src="交互.js?v=20261030-663dc0552c"></script>
 </body>
 </html>
