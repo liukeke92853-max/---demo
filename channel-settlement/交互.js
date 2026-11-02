@@ -11,9 +11,10 @@ const mark = (t='改造') => `<span class="change ${t==='新增'?'add':''}">${t}
 // 当前评审统一按10月演示；此日期不代表正式上线日期。
 const demoStart = '2026-10';
 const monthDays=month=>{const [year,n]=month.split('-').map(Number);return new Date(Date.UTC(year,n,0)).getUTCDate();};
-const modificationCutoff=(month=state.month)=>month+'-'+String(monthDays(month)-6).padStart(2,'0');
-const proportionLocked=()=>state.demoDate>=modificationCutoff();
-const modificationLockText=()=>`每月最后7个自然日暂停修改比例，本月${Number(modificationCutoff().slice(-2))}日至${monthDays(state.month)}日比例只读；模式和保护期仍可调整。`;
+// 北京时间提交满168小时截止；人工审批与超时处理共用生效逻辑。
+const shiftTime=(time,days)=>new Date(Date.parse(time.replace(' ','T')+'+08:00')+days*86400000+8*3600000).toISOString().slice(0,19).replace('T',' ');
+const approvalDeadline=a=>a.deadline??shiftTime(a.created,7);
+const approvalEffectiveMonth=(a,time)=>a.kind==='preset'&&time.slice(0,7)===a.month?a.targetMonth:time.slice(0,7);
 let currentModal = '', modalContext = null, lastFocus = null, toastTimer;
 function buildSeed(){
   const ruleVersions=[{version:1,effectiveMonth:demoStart,operator:'初始演示配置',savedAt:'2026-10-01 00:00:00',tiers:[
@@ -51,14 +52,14 @@ function buildSeed(){
   bill(2158208,'2026-09',[['2026-08',100000,21],['2026-09',240000,46]]);
   bill(223324,'2026-09',[['2026-09',180000,30]]);
   bill(2680091,'2026-09',[['2026-08',25000,8]]);
-  const data={view:'channels',tab:'channel',month:demoStart,demoDate:demoStart+'-29',role:'operator',channels,bills,ruleVersions,recalculations:[],presets:[],presetSequence:0,notifications:[],approvalSequence:1,approvals:[{id:'AP-001',kind:'create',beforeRate:null,channelSnapshot:structuredClone(channels.find(c=>c.id===2831509)),channelId:2831509,rate:80,protection:noProtection(),reason:'长期合作渠道，承担独立团队的招募与运营成本，申请80%提成。',month:demoStart,status:'pending',applicant:'木豆',applicantId:'demo-mudou',created:'2026-10-21 10:00:00'}],filters:{settlement:{q:'',month:'2026-09',dateStart:'',dateEnd:''},channels:{q:'',status:'',dateStart:'',dateEnd:''}},page:1,pageSize:20};
+  const data={view:'channels',tab:'channel',month:demoStart,demoDate:demoStart+'-29',demoClock:'10:00:00',role:'operator',channels,bills,ruleVersions,recalculations:[],presets:[],presetSequence:0,notifications:[],approvalSequence:1,approvals:[{id:'AP-001',kind:'create',beforeRate:null,channelSnapshot:structuredClone(channels.find(c=>c.id===2831509)),channelId:2831509,rate:80,protection:noProtection(),reason:'长期合作渠道，承担独立团队的招募与运营成本，申请80%提成。',month:demoStart,status:'pending',applicant:'木豆',applicantId:'demo-mudou',created:'2026-10-28 10:00:00'}],filters:{settlement:{q:'',month:'2026-09',dateStart:'',dateEnd:''},channels:{q:'',status:'',dateStart:'',dateEnd:''}},page:1,pageSize:20};
   seedChangeHistory(data);
   data.channels.forEach(c=>{c.cooperationSequence=1;c.currentCycleId=c.id+'-C1';c.cycles=[{id:c.currentCycleId,sequence:1,start:c.created,end:c.active?null:demoStart+'-01 00:00:00'}];c.history.forEach(h=>h.cycleId=c.currentCycleId);});
   data.presets.forEach(p=>p.cycleId=data.channels.find(c=>c.id===p.channelId).currentCycleId);
   data.approvals.filter(a=>a.kind==='preset').forEach(a=>a.cycleId=data.channels.find(c=>c.id===a.channelId).currentCycleId);
   data.changeLogs.forEach(l=>l.cycleId=data.channels.find(c=>c.id===l.channelId)?.currentCycleId);
   data.bills.forEach(b=>b.parts.forEach(p=>p.cycleId=data.channels.find(c=>c.id===b.channelId).currentCycleId));
-  seedApprovalMessages(data);return data;
+  data.approvals.forEach(a=>a.deadline=approvalDeadline(a));seedApprovalMessages(data);return data;
 }
 let state = buildSeed();
 const channelById = id => state.channels.find(c=>c.id===Number(id));
@@ -107,6 +108,7 @@ function renderPRD(key){$('#page-prd').innerHTML=ChannelPRD.render(key==='settle
 function render(){
   $('#demo-month').textContent=`演示月份 ${monthText(state.month)}`;
   Object.assign($('#demo-date'),{value:state.demoDate,min:state.month+'-01',max:state.month+'-'+monthDays(state.month)});
+  $('#demo-time').value=state.demoClock;
   $('#user-avatar').textContent=state.role==='approver'?'青':'木';
   $('#role').value=state.role;
   $('#preview-approval-messages').hidden=state.role!=='approver';
@@ -188,8 +190,8 @@ function nextConfigurationSummary(c){
 function commissionFields(c){
   if(!c)return `<div class="form-field"><label class="required" for="initial-rate">初始提成比例${mark('新增')}</label><div class="input-unit"><input id="initial-rate" name="rate" type="number" min="0" max="100" step="0.01" value="50"><span>%</span></div></div><div class="decision-card" id="rate-decision"></div>${protectionFields(noProtection(),state.month)}<div class="form-field" id="reason-field" hidden><label class="required" for="apply-reason">申请原因</label><textarea id="apply-reason" name="reason"></textarea></div>`;
   const current=rateAt(c,state.month),targetMonth=nextMonth(state.month),preset=confirmedPreset(c,targetMonth),pending=state.approvals.find(a=>a.channelId===c.id&&a.status==='pending'),plan=preset?.protection??noProtection();
-  let next=pending?`<div class="decision-card orange">已有待审批申请：${pending.rate}%${pending.kind==='preset'?' · '+monthText(pending.targetMonth)+'付款订单':''}<br>该申请处理完成前，不可重复提交次月配置。</div>`:!current?'<div class="decision-card">暂无当前月生效配置，暂不可预设次月比例。</div>':`<div class="next-preview" id="next-summary">${nextConfigurationSummary(c)}</div><div id="preset-fields" data-editing="false" hidden><div class="form-field"><label class="required" for="next-rate">次月预设比例</label><div class="input-unit"><input id="next-rate" name="rate" type="number" min="0" max="100" step="0.01" value="${preset?.rate??(proportionLocked()?current.rate:'')}" ${proportionLocked()?'readonly':''}><span>%</span></div></div>${protectionFields(plan,targetMonth,!preset)}<div class="form-field" id="reason-field" hidden><label class="required" for="apply-reason">变更原因</label><textarea id="apply-reason" name="reason"></textarea></div><div class="decision-card" id="rate-decision"></div></div>`;
-  return `<div class="config-block"><h4>${c.active?'本月配置':'原合作配置（暂停执行）'} · ${monthText(c.active?state.month:(current?.month??state.month))} <span>只读</span></h4>${configurationSummary(current)}</div><div class="config-block"><h4 class="next-config-heading">次月配置 · ${monthText(targetMonth)}${current&&c.active&&!pending?'<button type="button" class="link" id="edit-next-config" data-action="edit-next-config">修改</button><button type="button" class="link" id="cancel-next-config" data-action="cancel-next-config" hidden>取消修改</button>':''}</h4>${next}${current&&!c.active?'<p class="form-help">合作已终止，暂不可预设次月配置。</p>':''}${current&&proportionLocked()?'<p class="form-help">'+modificationLockText()+'</p>':''}</div>`;
+  let next=pending?`<div class="decision-card orange">已有待审批申请：${pending.rate}%${pending.kind==='preset'?' · '+monthText(pending.targetMonth)+'付款订单':''}<br>该申请处理完成前，不可重复提交次月配置。</div>`:!current?'<div class="decision-card">暂无当前月生效配置，暂不可预设次月比例。</div>':`<div class="next-preview" id="next-summary">${nextConfigurationSummary(c)}</div><div id="preset-fields" data-editing="false" hidden><div class="form-field"><label class="required" for="next-rate">次月预设比例</label><div class="input-unit"><input id="next-rate" name="rate" type="number" min="0" max="100" step="0.01" value="${preset?.rate??''}"><span>%</span></div></div>${protectionFields(plan,targetMonth,!preset)}<div class="form-field" id="reason-field" hidden><label class="required" for="apply-reason">变更原因</label><textarea id="apply-reason" name="reason"></textarea></div><div class="decision-card" id="rate-decision"></div></div>`;
+  return `<div class="config-block"><h4>${c.active?'本月配置':'原合作配置（暂停执行）'} · ${monthText(c.active?state.month:(current?.month??state.month))} <span>只读</span></h4>${configurationSummary(current)}</div><div class="config-block"><h4 class="next-config-heading">次月配置 · ${monthText(targetMonth)}${current&&c.active&&!pending?'<button type="button" class="link" id="edit-next-config" data-action="edit-next-config">修改</button><button type="button" class="link" id="cancel-next-config" data-action="cancel-next-config" hidden>取消修改</button>':''}</h4>${next}${current&&!c.active?'<p class="form-help">合作已终止，暂不可预设次月配置。</p>':''}</div>`;
 }
 function showForm(id,resuming=false){
   const c=id?channelById(id):null;modalContext={editing:c?.id||null,resuming};
@@ -215,7 +217,6 @@ function proposedConfig(form,c){
   if(p.error)return p;
   if(!c.active)return {error:'合作已终止，暂不可预设次月配置。'};
   const changedRate=rate!==beforeRate,changedProtection=JSON.stringify(p.value)!==JSON.stringify(oldPlan);
-  if(changedRate&&proportionLocked())return {error:modificationLockText()};
   return {rate,protection:p.value,beforeRate,beforeProtection:structuredClone(oldPlan),targetMonth,needsApproval:changedRate,changed:!base||changedRate||changedProtection};
 }
 function syncCooperationSwitch(){
@@ -248,17 +249,17 @@ function updateFormDecision(){
   if(existing&&!presetEditing){$('#save-channel').textContent='保存基础资料';return;}
   const raw=existing?$('#next-rate').value:$('#initial-rate').value,rate=Number(raw),proposal=existing?proposedConfig(form,c):null,review=existing?proposal.changed&&proposal.needsApproval:rate>50;
   $('#reason-field').hidden=!review;$('#save-channel').textContent=review?'提交审批':existing?'保存次月配置':modalContext.resuming?'恢复并生效':'保存并生效';
-  if(existing)$('#rate-decision').textContent=proposal.error||(!proposal.changed?'次月配置未发生变更。':proposal.needsApproval?'提交后需审批，通过后于'+monthChinese(nextMonth(state.month))+'1日生效；月底仍待审批时系统自动通过。':'模式与保护期无需审批，保存后于'+monthChinese(nextMonth(state.month))+'1日生效，当前月配置保持不变。');
+  if(existing)$('#rate-decision').textContent=proposal.error||(!proposal.changed?'次月配置未发生变更。':proposal.needsApproval?'提交后有7天审核期，超时自动生效。同月通过于次月生效；跨月通过或超时生效，覆盖生效月整月付款订单。':'模式与保护期无需审批，保存后于'+monthChinese(nextMonth(state.month))+'1日生效，当前月配置保持不变。');
   else{
     const coop=$('#coop-status');if(rate>50&&!coop.disabled)coop.dataset.normalValue=coop.value;
     if(rate<=50&&coop.disabled)coop.value=coop.dataset.normalValue||'true';if(rate>50)coop.value='false';coop.disabled=rate>50;
     syncCooperationSwitch();
-    $('#rate-decision').textContent=modalContext.resuming?(rate>50?'审批通过当月恢复合作；新比例只用于恢复后的新合作订单，旧订单保留原比例。':rate+'% · 保存后恢复合作，只用于新合作订单；旧订单保留原比例。'):(rate>50?'审批通过后开启合作，初始比例适用于付款时间在审批通过当月的渠道订单。':rate+'% · 保存后适用于付款时间在'+monthChinese(state.month)+'的渠道订单。');
+    $('#rate-decision').textContent=modalContext.resuming?(rate>50?'提交后7天内审核，超时自动生效；恢复生效月的新合作订单使用新比例，旧合作订单保留原比例。':rate+'% · 保存后恢复合作，只用于新合作订单；旧订单保留原比例。'):(rate>50?'提交后7天内审核，超时自动生效并开启合作；初始比例适用于生效月整月付款的渠道订单。':rate+'% · 保存后适用于付款时间在'+monthChinese(state.month)+'的渠道订单。');
   }
 }
-function demoTime(){const time=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',timeStyle:'medium'}).format(new Date());return state.demoDate+' '+time;}
+function demoTime(){return state.demoDate+' '+state.demoClock;}
 function actor(){return state.role==='approver'?{name:'青椒',id:'demo-qingjiao'}:{name:'木豆',id:'demo-mudou'};}
-function newApplication(data){const who=actor(),a={id:'AP-'+String(++state.approvalSequence).padStart(3,'0'),month:state.month,status:'pending',applicant:who.name,applicantId:who.id,created:demoTime(),...data};state.approvals.unshift(a);const log=addAuditLog(channelById(a.channelId),{...a,review:'pending',approvalId:a.id});if(a.kind==='preset')a.cycleId=channelById(a.channelId).currentCycleId;a.changeId=log.id;notifyApprovalCreated(a,state);return a;}
+function newApplication(data){const who=actor(),a={id:'AP-'+String(++state.approvalSequence).padStart(3,'0'),month:state.month,status:'pending',applicant:who.name,applicantId:who.id,created:demoTime(),...data};a.deadline=approvalDeadline(a);state.approvals.unshift(a);const log=addAuditLog(channelById(a.channelId),{...a,review:'pending',approvalId:a.id});if(a.kind==='preset')a.cycleId=channelById(a.channelId).currentCycleId;a.changeId=log.id;notifyApprovalCreated(a,state);return a;}
 function savePreset(c,data,approvalId=null,confirmedAt=demoTime(),operator=actor().name){
   const previous=confirmedPreset(c,data.targetMonth);if(previous){previous.status='superseded';const log=state.changeLogs.find(l=>l.id===previous.changeId);if(log)addAuditEvent(log,'已被后续配置替换',confirmedAt,operator);}
   const preset={id:'PRE-'+(++state.presetSequence),channelId:c.id,cycleId:c.currentCycleId,targetMonth:data.targetMonth,rate:data.rate,protection:structuredClone(data.protection),status:'confirmed',confirmedAt,approvalId};
@@ -297,25 +298,22 @@ function saveChannel(form){
   state.view='channels';state.filters.channels={q:'',status:'',dateStart:'',dateEnd:''};state.page=1;$('#main-dialog').close();render();toast(rate>50?'申请已提交，审批通过前合作状态为未开启':'渠道已新增，初始比例当月生效');
 }
 function showApprovals(filter='pending',scope=null){
+  processDueApprovals();
   modalContext={filter,approvalScope:scope};
-  const list=state.approvals.filter(a=>(filter==='all'||a.status===filter)&&(!scope?.id||a.id===scope.id)&&(!scope?.month||a.kind==='preset'&&a.month===scope.month));
-  showDialog('提成修改审批',`${scope?'<p class="form-help">'+(scope.month?monthText(scope.month)+' · 本月发起的提成修改审批':'消息对应申请')+' <button class="link" data-action="approvals">查看全部审批</button></p>':''}<div class="pill-tabs"><span class="small">审批状态${mark('新增')}</span><button data-action="approval-filter" data-value="pending" class="${filter==='pending'?'active':''}">待审批</button><button data-action="approval-filter" data-value="all" class="${filter==='all'?'active':''}">全部记录</button></div>${list.map(a=>{
+  const list=state.approvals.filter(a=>(filter==='all'||a.status===filter)&&(!scope?.id||a.id===scope.id));
+  showDialog('提成修改审批',`${scope?'<p class="form-help">'+'消息对应申请'+' <button class="link" data-action="approvals">查看全部审批</button></p>':''}<div class="pill-tabs"><span class="small">审批状态${mark('新增')}</span><button data-action="approval-filter" data-value="pending" class="${filter==='pending'?'active':''}">待审批</button><button data-action="approval-filter" data-value="all" class="${filter==='all'?'active':''}">全部记录</button></div>${list.map(a=>{
     const c=a.channelSnapshot||channelById(a.channelId),live=channelById(a.channelId),current=live?rateAt(live,state.month):null,statusNames={pending:'待审批',approved:a.approvalMethod==='timeout'?'系统超时通过':'已通过',rejected:a.approvalMethod==='termination'?'自动拒绝':'已驳回',expired:'历史已过期'},can=state.role==='approver';
-    return `<article class="approval-row"><div class="approval-heading">${company(c)}${tag(statusNames[a.status],a.status==='pending'?'orange':a.status==='approved'?'green':'red')}</div><div class="approval-detail"><div><span>申请类型</span>${a.kind==='preset'?'次月预设':a.kind==='resume'?'恢复合作':'新增渠道'}</div><div><span>申请提成比例</span><strong class="rate">${a.rate}%</strong></div><div><span>调整前比例</span>${a.beforeRate===null?'—':a.beforeRate+'%'}</div><div><span>当前生效比例</span>${current?current.rate+'%':'—'}</div><div><span>目标付款月</span>${a.kind==='preset'?monthText(a.targetMonth):'审批通过当月'}</div><div><span>申请人</span>${esc(a.applicant)}</div><div><span>执行方式</span>${protectionNames[a.protection.mode]}</div><div><span>保护期限</span>${protectionRange(a.protection)}</div>${a.beforeProtection?'<div><span>原保护安排</span>'+protectionNames[a.beforeProtection.mode]+' · '+protectionRange(a.beforeProtection)+'</div>':''}${a.approvedAt?'<div><span>通过时间</span>'+esc(a.approvedAt)+'</div><div><span>处理人／方式</span>'+esc(a.approver??'青椒')+' · '+(a.approvalMethod==='timeout'?'系统超时通过':'人工审批')+'</div>':''}</div><p>申请原因：${esc(a.reason)}</p>${a.status==='pending'?'<p class="form-help">'+(a.kind==='preset'?'本月月底仍待审批时，系统自动通过并用于次月付款订单。':(a.kind==='resume'?'恢复合作':'新增渠道')+'须人工审批通过，不参与月底自动通过；通过前合作未开启。')+'</p>':''}${a.rejectReason?'<p class="warning-text">驳回原因：'+esc(a.rejectReason)+'</p>':''}${a.status==='expired'?'<p class="warning-text">申请已过期，目标月份的生效比例保持不变。如需调整，请重新提交下一月份的配置申请。</p>':''}<div class="approval-record-link"><span class="small">${esc(a.created)}</span><button type="button" class="link" data-action="approval-changes" data-id="${a.channelId}">查看变更记录</button></div>${can&&a.status==='pending'?`<div class="approval-actions"><button class="link danger" data-action="approval-reject" data-id="${a.id}">驳回</button><button class="btn primary small" data-action="approval-approve" data-id="${a.id}">通过</button></div>`:''}</article>`;
+    return `<article class="approval-row"><div class="approval-heading">${company(c)}${tag(statusNames[a.status],a.status==='pending'?'orange':a.status==='approved'?'green':'red')}</div><div class="approval-detail"><div><span>申请类型</span>${a.kind==='preset'?'次月预设':a.kind==='resume'?'恢复合作':'新增渠道'}</div><div><span>申请提成比例</span><strong class="rate">${a.rate}%</strong></div><div><span>调整前比例</span>${a.beforeRate===null?'—':a.beforeRate+'%'}</div><div><span>当前生效比例</span>${current?current.rate+'%':'—'}</div><div><span>申请目标付款月</span>${a.kind==='preset'?monthText(a.targetMonth):'首次生效当月'}</div><div><span>审核截止时间</span>${esc(approvalDeadline(a))}</div>${a.effectiveMonth?'<div><span>实际生效付款月</span>'+monthText(a.effectiveMonth)+' · 整月</div>':''}<div><span>申请人</span>${esc(a.applicant)}</div><div><span>执行方式</span>${protectionNames[a.protection.mode]}</div><div><span>保护期限</span>${protectionRange(a.protection)}</div>${a.beforeProtection?'<div><span>原保护安排</span>'+protectionNames[a.beforeProtection.mode]+' · '+protectionRange(a.beforeProtection)+'</div>':''}${a.approvedAt?'<div><span>通过时间</span>'+esc(a.approvedAt)+'</div><div><span>处理人／方式</span>'+esc(a.approver??'青椒')+' · '+(a.approvalMethod==='timeout'?'系统超时通过':'人工审批')+'</div>':''}</div><p>申请原因：${esc(a.reason)}</p>${a.status==='pending'?'<p class="form-help">'+('提交起7天内可人工审批，截止仍待审批则自动生效。跨月处理后适用于生效月整月付款订单。'+(a.kind==='preset'?'':'生效前合作未开启。'))+'</p>':''}${a.rejectReason?'<p class="warning-text">驳回原因：'+esc(a.rejectReason)+'</p>':''}${a.status==='expired'?'<p class="warning-text">申请已过期，目标月份的生效比例保持不变。如需调整，请重新提交下一月份的配置申请。</p>':''}<div class="approval-record-link"><span class="small">${esc(a.created)}</span><button type="button" class="link" data-action="approval-changes" data-id="${a.channelId}">查看变更记录</button></div>${can&&a.status==='pending'?`<div class="approval-actions"><button class="link danger" data-action="approval-reject" data-id="${a.id}">驳回</button><button class="btn primary small" data-action="approval-approve" data-id="${a.id}">通过</button></div>`:''}</article>`;
   }).join('')||'<div class="empty">暂无待审批记录</div>'}`,closeButtons,'wide','approval');
 }
-function mayProcess(a){
-  if(!a||a.status!=='pending'||state.role!=='approver')return false;
-  if(a.kind==='preset'&&a.targetMonth<=state.month){toast('目标月份已开始，当前月比例不支持修改');return false;}
-  return true;
-}
+function mayProcess(a){return Boolean(a&&a.status==='pending'&&state.role==='approver');}
 function initialProtectionAt(protection,month){
   const p=structuredClone(protection);if(p.mode!=='none'){const count=p.end===null?null:monthDistance(p.start,p.end)+1;p.start=month;p.end=count===null?null:addMonths(month,count-1);}return p;
 }
 function applyResumption(c,rate,protection,active,time,source){
   c.cooperationSequence++;c.currentCycleId=c.id+'-C'+c.cooperationSequence;
   c.cycles.push({id:c.currentCycleId,sequence:c.cooperationSequence,start:time,end:active?null:time});
-  c.history.push({cycleId:c.currentCycleId,month:state.month,rate,protection:structuredClone(protection),source});
+  c.history.push({cycleId:c.currentCycleId,month:time.slice(0,7),rate,protection:structuredClone(protection),source});
   Object.assign(c,{rate,initialProtection:structuredClone(protection),active,requiresReconfiguration:!active,resumptionPending:false,status:'effective',updated:time});delete c.stoppedAt;
 }
 function saveResumption(form,c,d,error){
@@ -341,35 +339,47 @@ function completeApproval(a,operator,method='manual',time=demoTime()){
   if(a.status!=='pending')return false;
   const c=channelById(a.channelId);if(!c)return false;
   if(a.kind==='preset'&&(!c.active||a.cycleId!==c.currentCycleId)){a.status='rejected';a.rejectReason='合作已终止';a.rejectedAt=time;a.approver='系统';a.approvalMethod='termination';reviewAudit(a);return false;}
-  a.status='approved';a.approver=operator;a.approvalMethod=method;a.approvedAt=time;reviewAudit(a);
-    if(a.kind==='preset')savePreset(c,a,a.id,time,operator);
+  const effectiveMonth=approvalEffectiveMonth(a,time),p=initialProtectionAt(a.protection,effectiveMonth);
+  a.status='approved';a.approver=operator;a.approvalMethod=method;a.approvedAt=time;a.effectiveMonth=effectiveMonth;reviewAudit(a);
+    if(a.kind==='preset'){
+      const preset=savePreset(c,{...a,targetMonth:effectiveMonth,protection:p},a.id,time,operator);
+      const log=state.changeLogs.find(l=>l.id===a.changeId);
+      if(effectiveMonth<=time.slice(0,7)){
+        state.presets.filter(x=>x!==preset&&x.channelId===c.id&&x.cycleId===c.currentCycleId&&x.targetMonth===effectiveMonth&&x.status==='applied').forEach(x=>{x.status='superseded';const old=state.changeLogs.find(l=>l.id===x.changeId);if(old)addAuditEvent(old,'已被后续通过配置替换',time,operator);});
+        const record={cycleId:c.currentCycleId,month:effectiveMonth,rate:a.rate,protection:p,approvalId:a.id,presetId:preset.id,source:method==='timeout'?'七天审核期满自动生效':'跨月审批整月覆盖'};
+        const index=c.history.findIndex(h=>h.cycleId===c.currentCycleId&&h.month===effectiveMonth);
+        if(index<0)c.history.push(record);else c.history[index]=record;
+        preset.status='applied';c.rate=a.rate;c.initialProtection=p;
+        if(log){log.effectStatus='applied';addAuditEvent(log,'配置已生效，覆盖'+monthText(effectiveMonth)+'整月付款订单',time,operator);}
+      }
+      if(log){log.effectiveMonth=effectiveMonth;if(JSON.stringify(log.after.protection)!==JSON.stringify(p))log.effectiveAfter={rate:a.rate,protection:structuredClone(p)};}
+    }
     else if(a.kind==='resume'){
-      const p=initialProtectionAt(a.protection,state.month);applyResumption(c,a.rate,p,true,time,'恢复合作审批通过');a.effectiveMonth=state.month;
-      const log=state.changeLogs.find(l=>l.id===a.changeId);if(log){log.effectStatus='applied';log.effectiveMonth=state.month;log.afterCycleId=c.currentCycleId;if(JSON.stringify(log.after.protection)!==JSON.stringify(p))log.effectiveAfter={rate:a.rate,protection:structuredClone(p)};addAuditEvent(log,'恢复合作配置已生效',time,operator);}
+      applyResumption(c,a.rate,p,true,time,'恢复合作审批生效');
+      const log=state.changeLogs.find(l=>l.id===a.changeId);if(log){log.effectStatus='applied';log.effectiveMonth=effectiveMonth;log.afterCycleId=c.currentCycleId;if(JSON.stringify(log.after.protection)!==JSON.stringify(p))log.effectiveAfter={rate:a.rate,protection:structuredClone(p)};addAuditEvent(log,'恢复合作配置已生效，新合作订单按生效月配置计算',time,operator);}
     }
     else{
-      let p=structuredClone(a.protection);
-      if(p.mode!=='none'){const duration=p.end===null?null:monthDistance(p.start,p.end)+1;p.start=state.month;p.end=duration===null?null:addMonths(state.month,duration-1);}
-      c.cycles[0].start=time;c.history.push({cycleId:c.currentCycleId,month:state.month,rate:a.rate,protection:p,approvalId:a.id,source:'新增审批通过'});c.rate=a.rate;c.initialProtection=p;c.active=true;c.status='effective';a.effectiveMonth=state.month;
-      const log=state.changeLogs.find(l=>l.id===a.changeId);if(log){log.effectStatus='applied';log.effectiveMonth=state.month;if(JSON.stringify(log.after.protection)!==JSON.stringify(p))log.effectiveAfter={rate:a.rate,protection:structuredClone(p)};addAuditEvent(log,'配置已生效',time,operator);}
+      c.cycles[0].start=time;c.history.push({cycleId:c.currentCycleId,month:effectiveMonth,rate:a.rate,protection:p,approvalId:a.id,source:method==='timeout'?'新增七天审核期满自动生效':'新增审批通过'});c.rate=a.rate;c.initialProtection=p;c.active=true;c.status='effective';
+      const log=state.changeLogs.find(l=>l.id===a.changeId);if(log){log.effectStatus='applied';log.effectiveMonth=effectiveMonth;if(JSON.stringify(log.after.protection)!==JSON.stringify(p))log.effectiveAfter={rate:a.rate,protection:structuredClone(p)};addAuditEvent(log,'配置已生效，适用'+monthText(effectiveMonth)+'整月付款订单',time,operator);}
     }
   c.updated=time;return true;
 }
-function autoApproveMonth(sourceMonth){
-  const targetMonth=nextMonth(sourceMonth),time=targetMonth+'-01 00:00:00',ids=[];
-  state.channels.filter(c=>!c.active).forEach(c=>closeTerminatedPlans(c,time));
-  state.approvals.filter(a=>a.kind==='preset'&&a.status==='pending'&&a.month===sourceMonth&&a.targetMonth===targetMonth).forEach(a=>{if(completeApproval(a,'系统','timeout',time))ids.push(a.id);});
+function processDueApprovals(time=demoTime(),inclusive=true){
+  remindPendingApprovals(state,time);
+  const ids=[];
+  state.approvals.filter(a=>a.status==='pending'&&(inclusive?approvalDeadline(a)<=time:approvalDeadline(a)<time)).sort((a,b)=>approvalDeadline(a).localeCompare(approvalDeadline(b))||a.id.localeCompare(b.id)).forEach(a=>{if(completeApproval(a,'系统','timeout',approvalDeadline(a)))ids.push(a.id);});
   return ids;
 }
 function approve(id){
   const a=state.approvals.find(a=>a.id===id);if(!mayProcess(a))return;
   const c=channelById(a.channelId);if(!c)return;
-  const valid=()=>{if(!mayProcess(a))return false;if(a.kind==='preset'){const base=confirmedPreset(c,a.targetMonth),rate=base?.rate??rateAt(c,state.month)?.rate;if(rate!==a.beforeRate){toast('次月配置已变化，请重新发起预设');return false;}}return true;};
+  const valid=()=>{processDueApprovals();if(!mayProcess(a)){toast('该申请已处理，请查看最新结果');return false;}return true;};
   if(!valid())return;
-  confirmAction('确认通过提成申请？',`<div class="detail-company">${company(c)}</div><div class="decision-card">${a.kind==='preset'?`确认预设${a.rate}%，将于${monthChinese(a.targetMonth)}1日生效，适用于该月付款的渠道订单；本月配置保持不变。`:`${a.kind==='resume'?'恢复合作后形成':'确认后首次形成'}${a.rate}%提成配置，适用于付款时间在${monthChinese(state.month)}的${a.kind==='resume'?'新合作订单，旧订单保留原比例':'渠道订单'}，并开启合作。`}<br>执行方式：${protectionNames[a.protection.mode]} · ${protectionRange(a.protection)}</div>`,()=>{
+  const effect=approvalEffectiveMonth(a,demoTime()),protection=initialProtectionAt(a.protection,effect);
+  confirmAction('确认通过提成申请？',`<div class="detail-company">${company(c)}</div><div class="decision-card">确认后，${a.rate}%适用于付款时间在${monthChinese(effect)}整月的${a.kind==='resume'?'新合作订单，旧合作订单保留原比例':'渠道订单'}。${effect===state.month?'该月审批前后的订单均采用此比例，不按审批时间拆分。':'该月1日起生效，当前月配置保持不变。'}${a.kind==='preset'?'':'同时开启合作。'}<br>执行方式：${protectionNames[protection.mode]} · ${protectionRange(protection)}</div>`,()=>{
     if(!valid())return;
     completeApproval(a,'青椒');
-    c.updated=demoTime();render();showApprovals('all');toast(a.kind==='preset'?'次月预设已通过，等待生效':a.kind==='resume'?'恢复审批通过，新合作配置已生效':'新增审批通过，合作已开启');
+    c.updated=demoTime();render();showApprovals('all');toast(a.effectiveMonth>state.month?'审批已通过，等待次月生效':'审批已通过，按生效月整月比例执行');
   },'确认通过');
 }
 function reject(id){
@@ -400,15 +410,10 @@ function showSimulation(){
   updateSimulation();
 }
 function readGmv(input){const raw=input.value;return raw.trim()!==''&&/^\d+(\.\d{1,2})?$/.test(raw)&&Number.isSafeInteger(Math.round(Number(raw)*100))?Math.round(Number(raw)*100):null;}
-function simulationDecision(c,gmv){
-  const pending=state.approvals.find(a=>a.channelId===c.id&&a.kind==='preset'&&a.status==='pending'&&a.month===state.month&&a.targetMonth===nextMonth(state.month));
-  if(!pending)return monthlyDecision(c,gmv);
-  return {matched:tierRate(gmv),after:pending.rate,result:'月底自动通过',reason:'当前待审批；月底仍未处理时自动通过，按申请配置生效'};
-}
 function updateSimulation(){document.querySelectorAll('.gmv-input').forEach(input=>{
   const c=channelById(input.dataset.id),gmv=readGmv(input),result=$(`[data-result="${c.id}"]`);
   if(gmv===null){result.innerHTML='<span class="warning-text">请填写有效GMV</span>';return;}
-  const d=simulationDecision(c,gmv);
+  const d=monthlyDecision(c,gmv);
   result.innerHTML=`<span class="small">业绩匹配 ${d.matched}%</span><strong class="rate">${d.after}%</strong> ${tag(d.result,d.result==='降档'?'orange':d.result==='升档'?'green':'blue')}<span class="small">${d.reason}</span>`;
 });}
 function simulate(){
@@ -416,9 +421,9 @@ function simulate(){
   if(inputs.some(i=>readGmv(i)===null)){$('#simulation-error').textContent='请完整填写非负GMV，最多两位小数。';return;}
   const sourceMonth=state.month,month=nextMonth(sourceMonth),version=ruleVersionFor(sourceMonth);
   if(state.recalculations.some(r=>r.month===month)){toast('该月份已生成，请勿重复执行');return;}
-  remindPendingApprovals(state,modificationCutoff(sourceMonth));
-  const autoApprovedIds=autoApproveMonth(sourceMonth);
-  const results=inputs.map(i=>{const c=channelById(i.dataset.id),gmv=readGmv(i);return {c,gmv,...monthlyDecision(c,gmv,sourceMonth)};});
+  const boundary=month+'-01 00:00:00',gmvs=new Map(inputs.map(i=>[Number(i.dataset.id),readGmv(i)]));
+  const autoApprovedIds=processDueApprovals(boundary,false);
+  const results=simulationRows().map(c=>{const gmv=gmvs.get(c.id)??c.gmv;return {c,gmv,...monthlyDecision(c,gmv,sourceMonth)};});
   results.forEach(r=>{
     r.c.history.push({cycleId:r.c.currentCycleId,month,rate:r.after,matchedRate:r.matched,sourceMonth,gmv:r.gmv,ruleVersion:version.version,protection:structuredClone(r.protection),presetId:r.presetId,source:r.result});
     if(r.presetId){const preset=state.presets.find(p=>p.id===r.presetId);preset.status='applied';const log=state.changeLogs.find(l=>l.id===preset.changeId);if(log)addAuditEvent(log,'配置已生效',month+'-01 00:00:00','系统');}
@@ -426,8 +431,8 @@ function simulate(){
   });
   state.recalculations.push({sourceMonth,month,autoApprovedIds,ruleVersion:version.version,created:`${month}-01 00:00:00`,results:results.map(r=>({channelId:r.c.id,before:r.before,after:r.after,matched:r.matched,result:r.result,protection:structuredClone(r.protection)}))});
   state.channels.forEach(c=>c.gmv=0);
-  state.month=month;state.demoDate=month+'-01';render();
-  showDialog(`${monthText(month)}比例记录已生成`,`<div class="sim-header"><span>依据${monthText(sourceMonth)}业绩 · ${monthText(month)}月1日生效 · ${autoApprovedIds.length}条修改申请超时自动通过</span></div><div class="table-wrap"><table class="mini-table"><thead><tr><th>渠道</th><th>原比例</th><th>业绩匹配</th><th>本月生效</th><th>调整结果</th></tr></thead><tbody>${results.map(r=>`<tr><td>${esc(r.c.name)}</td><td>${r.before===null?'—':r.before+'%'}</td><td>${r.matched}%</td><td><b>${r.after}%</b></td><td>${tag(r.result,r.result==='降档'?'orange':'blue')}<span class="small">${r.reason}</span></td></tr>`).join('')}</tbody></table></div>`,`<button class="btn" data-close>关闭</button><button class="btn primary" data-action="next-simulation">继续演示下月</button>`,'wide','simulation');
+  state.month=month;state.demoDate=month+'-01';state.demoClock='00:00:00';autoApprovedIds.push(...processDueApprovals(boundary));render();
+  showDialog(`${monthText(month)}比例记录已生成`,`<div class="sim-header"><span>依据${monthText(sourceMonth)}业绩 · ${monthText(month)}月1日生效 · ${autoApprovedIds.length}条申请已满7天，系统自动生效</span></div><div class="table-wrap"><table class="mini-table"><thead><tr><th>渠道</th><th>原比例</th><th>业绩匹配</th><th>本月生效</th><th>调整结果</th></tr></thead><tbody>${results.map(r=>`<tr><td>${esc(r.c.name)}</td><td>${r.before===null?'—':r.before+'%'}</td><td>${r.matched}%</td><td><b>${r.after}%</b></td><td>${tag(r.result,r.result==='降档'?'orange':'blue')}<span class="small">${r.reason}</span></td></tr>`).join('')}</tbody></table></div>`,`<button class="btn" data-close>关闭</button><button class="btn primary" data-action="next-simulation">继续演示下月</button>`,'wide','simulation');
 }
 function showIp(id){const c=channelById(id);showDialog('可申请的IP',`<div class="detail-company">${company(c)}</div><div class="table-wrap"><table class="mini-table"><thead><tr><th>可申请的IP</th><th>KOC分成比例</th><th>渠道奖励金比例</th></tr></thead><tbody>${c.ips.map((ip,i)=>`<tr><td>${esc(ip)}</td><td>70%</td><td>${i===0?'0.5':'0'}%</td></tr>`).join('')||'<tr><td colspan="3" class="empty">全部合作IP，具体配置复用线上</td></tr>'}</tbody></table></div><p class="detail-tip">上述为模拟配置，复用原型既有信息；本次新增渠道提成比例不替代这两类比例。</p>`,closeButtons,'','channels');}
 function toggleCoop(id){
@@ -452,7 +457,7 @@ document.addEventListener('click',e=>{
     'toggle-form-coop':toggleFormCooperation,
     'edit-next-config':()=>setPresetEditing(true),'cancel-next-config':()=>setPresetEditing(false),
     create:()=>showForm(),edit:()=>showForm(id),config:()=>showConfig(id),bill:()=>showBill(id),orders:()=>showOrders(id),ip:()=>showIp(id),policy:showPolicy,'rule-config':showRuleConfig,
-    'approval-messages':showApprovalMessages,'message-approval':()=>showApprovals('all',{id}),'message-month':()=>showApprovals('pending',{month:value}),
+    'approval-messages':showApprovalMessages,'message-approval':()=>showApprovals('all',{id}),
     approvals:()=>showApprovals(),'approval-filter':()=>showApprovals(value,modalContext?.approvalScope),'approval-approve':()=>approve(id),'approval-reject':()=>reject(id),
     confirm:()=>modalContext?.confirm?.(),
     'reject-submit':submitRejection,
@@ -475,8 +480,9 @@ document.addEventListener('change',e=>{
   if(e.target.id==='role'){state.role=e.target.value;if($('#main-dialog').open)$('#main-dialog').close();render();}
   if(e.target.id==='demo-date'){
     const value=e.target.value;if(value<state.month+'-01'||value>state.month+'-'+monthDays(state.month)){render();toast('请选择当前演示月份内的日期');return;}
-    state.demoDate=value;changeReminderDate(state,value);if($('#main-dialog').open)$('#main-dialog').close();render();
+    state.demoDate=value;processDueApprovals();if($('#main-dialog').open)$('#main-dialog').close();render();
   }
+  if(e.target.id==='demo-time'){state.demoClock=e.target.value.length===5?e.target.value+':00':e.target.value;processDueApprovals();if($('#main-dialog').open)$('#main-dialog').close();render();}
   if(e.target.id==='page-size'){state.pageSize=Number(e.target.value);state.page=1;render();}
 });
 document.addEventListener('click',e=>{if(e.target.closest('#metric-explain')){$('#metric-popover').hidden=!$('#metric-popover').hidden;return;}if(!e.target.closest('#metric-popover'))$('#metric-popover').hidden=true;});
@@ -488,5 +494,5 @@ $('#main-dialog').addEventListener('click',e=>{if(e.target!==e.currentTarget)ret
 $('#open-simulation').addEventListener('click',showSimulation);
 $('#reset-demo').addEventListener('click',()=>confirmAction('重置演示数据？','<p>本页新增渠道、审批结果及升档记录将恢复为初始模拟数据，不影响真实系统。</p>',()=>{$('#main-dialog').close();state=buildSeed();render();toast('已恢复初始演示数据');},'重置演示'));
 // 暴露只读快照供本地交互核验，不提供任何生产数据或接口。
-window.ChannelDemo={snapshot:()=>structuredClone(state),billData:id=>billData(state.bills.find(b=>b.id===id)),rateAt:(id,m,cycleId)=>structuredClone(rateAt(channelById(id),m,cycleId)),partData:(id,part)=>structuredClone(calcPart(channelById(id),part)),tierRate,modificationCutoff,proportionLocked,protectionProgress,preview:(id,gmv,m)=>structuredClone(monthlyDecision(channelById(id),gmv,m)),slotRows:()=>structuredClone(slotRows())};
+window.ChannelDemo={snapshot:()=>structuredClone(state),billData:id=>billData(state.bills.find(b=>b.id===id)),rateAt:(id,m,cycleId)=>structuredClone(rateAt(channelById(id),m,cycleId)),partData:(id,part)=>structuredClone(calcPart(channelById(id),part)),tierRate,approvalDeadline,protectionProgress,preview:(id,gmv,m)=>structuredClone(monthlyDecision(channelById(id),gmv,m)),slotRows:()=>structuredClone(slotRows())};
 render();

@@ -1,5 +1,5 @@
 'use strict';
-// 月度记录是事实；次月预设是计划，批准计划不会改写当月记录。
+// 同月批准形成次月计划；跨月审批按生效月整月覆盖，按合作归属隔离。
 const addMonths=(month,count)=>{const [y,m]=month.split('-').map(Number),n=y*12+m-1+count;return Math.floor(n/12)+'-'+String(n%12+1).padStart(2,'0');};
 const monthDistance=(a,b)=>{const [ay,am]=a.split('-').map(Number),[by,bm]=b.split('-').map(Number);return (by-ay)*12+bm-am;};
 const protectionNames={none:'自动匹配',fixed:'固定比例',upOnly:'自动匹配 · 只升不降',downOnly:'自动匹配 · 只降不升'};

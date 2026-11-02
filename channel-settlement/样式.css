@@ -47,6 +47,6 @@ dialog.drawer{width:min(640px,100vw)}
 .audit-detail-diff h3{font-size:12px;color:#8693a8;margin:0 0 10px}.audit-detail-diff strong{font-size:22px;color:#3965da}
 .approval-record-link{display:flex;justify-content:space-between;align-items:center;gap:15px}
 @media(max-width:600px){.audit-detail-diff{grid-template-columns:1fr}.audit-table{min-width:780px}}
-.review-bar input[type=date]{font-size:11px;background:#2c3c5e;border:1px solid #52617d;border-radius:4px;color:#e7edfa;padding:3px 8px;color-scheme:dark}
+.review-bar input[type=date],.review-bar input[type=time]{font-size:11px;background:#2c3c5e;border:1px solid #52617d;border-radius:4px;color:#e7edfa;padding:3px 8px;color-scheme:dark}
 
 .approval-messages{display:grid;gap:18px}.reminder-card{border:1px solid #e2e9f6;border-radius:8px;overflow:hidden;background:#fff}.reminder-card header{display:flex;justify-content:space-between;gap:15px;padding:13px 18px;background:#eef4ff;color:#365b96}.reminder-card header span{font-size:11px;color:#8491a7}.reminder-card.deadline header{background:#fff6e6;color:#98691e}.reminder-content{padding:12px 18px 18px;font-size:13px}.reminder-content p{margin:8px 0 14px}.reminder-content dl{display:grid;grid-template-columns:95px 1fr;gap:6px 12px;margin:15px 0}.reminder-content dt{color:#8a94a5}.reminder-content dd{margin:0;overflow-wrap:anywhere}.reminder-content .reminder-deadline{color:#7d8ba2;font-size:12px}.reminder-content .btn{margin-top:6px}@media(max-width:700px){.reminder-card header{flex-direction:column;gap:3px}}
