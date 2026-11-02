@@ -4,12 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>渠道结算配置优化 · 交互演示与增量 PRD</title>
-  <link rel="stylesheet" href="样式.css?v=20261102-d8060050be">
+  <link rel="stylesheet" href="样式.css?v=20261102-9bec015f26">
 </head>
 <body>
   <div class="review-bar">
     <b>渠道结算配置优化 <span>V0.10</span></b>
     <span class="review-dot"></span><span>交互演示 · 全部业务数据为模拟</span>
+    <nav class="review-tabs" aria-label="评审内容"><button type="button" data-review-view="demo" aria-pressed="true">交互演示</button><button type="button" data-review-view="prd" aria-pressed="false">完整 PRD</button></nav>
     <div class="review-actions">
       <span id="demo-month"></span>
       <label>演示日期 <input id="demo-date" type="date" aria-label="演示日期"></label>
@@ -17,10 +18,10 @@
       <button id="preview-approval-messages" data-action="approval-messages" hidden>负责人飞书消息</button>
       <button id="open-simulation">演示次月自动调档</button>
       <label>演示身份 <select id="role"><option value="operator">业务操作人</option><option value="approver">青椒 · 负责人</option></select></label>
-      <a href="渠道结算配置优化-增量PRD.html?v=20261102-d8060050be" target="_blank">完整 PRD ↗</a>
       <button id="reset-demo">重置演示</button>
     </div>
   </div>
+  <div id="demo-surface">
   <header class="topbar"><div class="brand"><span class="brand-mark"><i></i><i></i><i></i></span>切片管理中心</div><div class="top-right"><span class="app-grid">▦</span><span class="user-avatar" id="user-avatar">木</span></div></header>
   <div class="app-layout">
     <aside class="rail" aria-label="系统模块">
@@ -33,10 +34,12 @@
       <footer class="page-footer">渠道结算配置优化 · 基于系统截图、历史原型与本地后端代码复刻 · 本地模拟，刷新恢复初始数据</footer>
     </main>
   </div>
+  </div>
+  <main id="full-prd" class="doc-body" hidden aria-label="完整需求说明"></main>
   <dialog id="main-dialog" aria-labelledby="dialog-title"><div class="dialog-head"><h2 id="dialog-title"></h2><button data-close aria-label="关闭弹窗">×</button></div><div id="dialog-body"></div><div class="dialog-footer" id="dialog-footer"></div></dialog>
   <aside class="metric-popover" id="metric-popover" hidden><h3>▤ 指标说明</h3><div><b>总订单</b><p>筛选条件下，所有渠道订单数之和</p><b>可分成金额</b><p>筛选条件下，所有渠道可分成金额之和</p><b>总提成</b><p>筛选条件下，所有渠道提成金额之和</p></div></aside>
   <div id="toast" role="status" hidden></div>
-  <script src="需求说明.js?v=20261102-d8060050be"></script><script src="提成档位.js?v=20261102-d8060050be"></script>
-  <script src="推广位结算.js?v=20261102-d8060050be"></script><script src="变更记录.js?v=20261102-d8060050be"></script><script src="飞书提醒.js?v=20261102-d8060050be"></script><script src="交互.js?v=20261102-d8060050be"></script>
+  <script src="需求说明.js?v=20261102-9bec015f26"></script><script src="提成档位.js?v=20261102-9bec015f26"></script>
+  <script src="推广位结算.js?v=20261102-9bec015f26"></script><script src="变更记录.js?v=20261102-9bec015f26"></script><script src="飞书提醒.js?v=20261102-9bec015f26"></script><script src="交互.js?v=20261102-9bec015f26"></script>
 </body>
 </html>

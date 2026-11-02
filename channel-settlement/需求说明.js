@@ -1035,7 +1035,7 @@ function render(key,standalone=false){
  const d=docs[key];if(!d)return '';
  const sections=(items,prefix='')=>items.map(([title,headers,rows])=>`<section class="prd-section"><h3>${esc(prefix+title)}</h3>${table(headers,rows,headers.length===3?'operation':'')}</section>`).join('');
  const related=standalone?[]:({channels:[['form','新增／编辑弹窗 · '],['config','提成详情 · '],['approval','审批弹窗 · ']],settlement:[['rules','提成档位配置弹窗 · ']],slots:[['rules','提成档位配置弹窗 · ']]})[key]||[];
- return `<div class="prd-header"><div><h2>${esc(d.title)} · 增量PRD</h2><p>本次新增／改造项 · 2026-11-02 · V0.10 方案演示</p></div>${standalone?'':'<a href="渠道结算配置优化-增量PRD.html" target="_blank">完整文档 ↗</a>'}</div><div class="prd-intro">${esc(d.intro)}</div>${sections(d.sections)}${related.map(([name,prefix])=>`<div data-prd="${name}-dialog">${sections(docs[name].sections,prefix)}</div>`).join('')}`;
+ return `<div class="prd-header"><div><h2>${esc(d.title)} · 增量PRD</h2><p>本次新增／改造项 · 2026-11-02 · V0.10 方案演示</p></div>${standalone?'':'<a href="#prd">完整文档</a>'}</div><div class="prd-intro">${esc(d.intro)}</div>${sections(d.sections)}${related.map(([name,prefix])=>`<div data-prd="${name}-dialog">${sections(docs[name].sections,prefix)}</div>`).join('')}`;
 }
 function extra(){return `
 <section class="prd-shell" id="scope"><div class="prd-header"><div><h2>七天审核、跨月整月覆盖与提成保护</h2><p>V0.10 · 当前按2026年10月演示</p></div></div><div class="prd-intro"><p>已有渠道仍在编辑中预设次月比例与保护，全月可提交；申请提交起7天内审核，超时自动生效。同月通过仍用于次月，跨月处理则覆盖生效月整月付款订单。新增及恢复的高比例审批同样计7天，首次配置按实际生效月执行。执行方式分为固定比例和自动匹配；固定比例在保护期内不升降，到期转为自动匹配（随档调整）；自动匹配下可选随档调整、只升不降、只降不升，单向限制继续按原有效期限执行，展示起止范围与第X／N个月。</p><p>10月展示当前记录，11月先按月初规则生成默认值，跨月申请通过后可覆盖整个11月；8、9月为历史账单。独立修改提成入口和连续低档计数实现已删除。人工比例与模式优先、仅比例变更审批、公共规则当月统计生效、负责人权限、业务供数修数、插档和终止恢复处理已确认；待补充资料及剩余事项见待确认清单。</p></div></section>
@@ -1075,5 +1075,21 @@ function extra(){return `
 ['V0.9 · 2026-10-28','按最新方案改造：本月不可修改，编辑中预设次月，取消独立调整提成比例。保护改固定周期执行方式与方向并显示进度；审批通过只确认计划，跨月未审完过期。旧版当前月人工生效、连续低档保护等代码删除，正文归档。'],
 ['V0.8及以前','历史正文保留原规则及当时确认，冲突内容不作为当前实现。查看历史版本了解演变。']
 ])}<a href="PRD历史版本-V0.9.html">查看V0.9历史PRD</a></section>`;}
-return {docs,render,extra};
+function full(){
+ const contents=Object.keys(docs).map(k=>`<section class="prd-shell" id="${k}">${render(k,true)}</section>`).join('');
+ return '<header class="doc-hero">'+"<button class=\"btn print-button\" onclick=\"window.print()\">打印／另存 PDF</button><h1>渠道结算配置优化</h1><p>增量需求说明 · V0.10 · 2026年11月2日 · 待评审</p><div class=\"doc-links\"><button type=\"button\" class=\"link\" data-review-view=\"demo\">← 返回交互演示</button><a href=\"PRD历史版本-V0.1.html\">历史PRD V0.1</a><a href=\"PRD历史版本-V0.2.html\">历史PRD V0.2</a><a href=\"PRD历史版本-V0.3.html\">历史PRD V0.3</a><a href=\"PRD历史版本-V0.4.html\">历史PRD V0.4</a><a href=\"PRD历史版本-V0.5.html\">历史PRD V0.5</a><a href=\"PRD历史版本-V0.6.html\">历史PRD V0.6</a><a href=\"PRD历史版本-V0.9.html\">历史PRD V0.9</a><a href=\"PRD历史版本-V0.8.html\">历史PRD V0.8</a><a href=\"PRD历史版本-V0.7.html\">历史PRD V0.7</a><a href=\"https://kabuda.feishu.cn/minutes/obcnn52b4keyj22v3l7dzxye\" target=\"_blank\" rel=\"noreferrer\">业务沟通记录 ↗</a></div><div class=\"doc-nav\" style=\"margin-top:24px\"><a href=\"#scope\">改造范围</a><a href=\"#channels\">渠道列表</a><a href=\"#form\">新增／编辑</a><a href=\"#settlement\">渠道结算</a><a href=\"#slots\">推广位结算</a><a href=\"#config\">提成配置详情</a><a href=\"#approval\">提成修改审批</a><a href=\"#rules\">提成档位配置</a><a href=\"#simulation\">月度自动调档</a><a href=\"#pending\">待确认</a><a href=\"#acceptance\">验收标准</a></div>"+ '</header>'+extra().replace('<section class="prd-shell" id="impact">',contents+'<section class="prd-shell" id="impact">');
+}
+function showReviewView(){
+ const full=document.querySelector('#full-prd');if(!full)return;
+ const hash=location.hash.slice(1),show=hash==='prd'||Object.hasOwn(docs,hash)||['scope','impact','pending','acceptance'].includes(hash);
+ if(show&&!full.innerHTML)full.innerHTML=fullContent();
+ document.querySelector('#demo-surface').hidden=show;full.hidden=!show;document.body.classList.toggle('showing-prd',show);
+ document.querySelectorAll('[data-review-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.reviewView===(show?'prd':'demo'))));
+ if(show&&hash!=='prd')document.getElementById(hash)?.scrollIntoView();
+}
+const fullContent=full;
+document.addEventListener('click',e=>{const b=e.target.closest('[data-review-view]');if(!b)return;location.hash=b.dataset.reviewView==='prd'?'prd':'demo';window.scrollTo(0,0);});
+window.addEventListener('hashchange',showReviewView);
+window.addEventListener('DOMContentLoaded',showReviewView);
+return {docs,render,extra,full};
 })();
