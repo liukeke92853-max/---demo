@@ -76,8 +76,8 @@ function rateAt(c,month,cycleId=c?.currentCycleId){
 function ruleVersionFor(month=state.month){
   return state.ruleVersions.filter(v=>v.effectiveMonth<=month).sort((a,b)=>b.effectiveMonth.localeCompare(a.effectiveMonth)||b.version-a.version)[0];
 }
-function tierForGmv(gmv,month=state.month){const tiers=ruleVersionFor(month).tiers;return gmv===0?tiers[0]:tiers.find(t=>gmv>t.min&&(t.max===null||gmv<=t.max));}
-function tierRate(gmv,month=state.month){return tierForGmv(gmv,month)?.rate??0;}
+function tierForGmv(gmv,month=state.month){const tiers=ruleVersionFor(month).tiers;return tiers.find((t,i)=>(i===0?gmv>=t.min:gmv>t.min)&&(t.max===null||gmv<=t.max));}
+function tierRate(gmv,month=state.month){return tierForGmv(gmv,month)?.rate??null;}
 function calcPart(c,p){const h=p.cycleId?rateAt(c,p.pay,p.cycleId):null;return {...p,rate:h?.rate??null,source:h?.source??'未取得适用比例',level:h?.level,commission:h?Math.floor(p.base*Math.round(h.rate*100)/10000):null};}
 function billData(b){const c=channelById(b.channelId),parts=b.parts.map(p=>calcPart(c,p));return {...b,c,parts,count:parts.reduce((s,p)=>s+p.count,0),base:parts.reduce((s,p)=>s+p.base,0),commission:parts.some(p=>p.commission===null)?null:parts.reduce((s,p)=>s+p.commission,0)};}
 function company(c){return `<div class="company"><span class="avatar" style="background:linear-gradient(145deg,${c.color||'#dce8ff'},#f6f8ff)">${esc(c.name.slice(0,1).toUpperCase())}</span><div><b>${esc(c.name)}</b><span class="small">机构ID ${c.id}</span></div></div>`;}
@@ -398,10 +398,10 @@ function submitRejection(){
   render();showApprovals('all');toast(a.kind==='create'?'新增申请已驳回，可重新新增':a.kind==='resume'?'恢复申请已驳回，合作保持终止':'次月配置申请已驳回，当前配置及已确认的次月配置保持不变');
 }
 const gmvWan=n=>Number((n/1000000).toFixed(2)).toLocaleString('zh-CN',{maximumFractionDigits:2});
-const gmvRangeText=t=>`${gmvWan(t.min)}${t.min===0?'（包含）':'（不含）'}－${t.max===null?'不限':gmvWan(t.max)+'（包含）'}万元`;
+const gmvRangeText=(t,first=false)=>`${gmvWan(t.min)}${first?'（包含）':'（不含）'}－${t.max===null?'不限':gmvWan(t.max)+'（包含）'}万元`;
 function showPolicy(){
   const version=ruleVersionFor();
-  showDialog('提成阶梯',`<div class="rule-effective"><span>适用统计月：${monthText(state.month)} · V${version.version}</span><span>对应付款月：${monthText(nextMonth(state.month))}</span></div><div class="table-wrap"><table class="mini-table"><thead><tr><th>月度GMV区间</th><th>对应提成比例</th></tr></thead><tbody>${version.tiers.map(t=>`<tr><td>${gmvRangeText(t)}</td><td><b class="rate">${t.rate}%</b></td></tr>`).join('')}</tbody></table></div>`,closeButtons,'','policy');
+  showDialog('提成阶梯',`<div class="rule-effective"><span>适用统计月：${monthText(state.month)} · V${version.version}</span><span>对应付款月：${monthText(nextMonth(state.month))}</span></div><div class="table-wrap"><table class="mini-table"><thead><tr><th>月度GMV区间</th><th>对应提成比例</th></tr></thead><tbody>${version.tiers.map((t,i)=>`<tr><td>${gmvRangeText(t,i===0)}</td><td><b class="rate">${t.rate}%</b></td></tr>`).join('')}</tbody></table></div>`,closeButtons,'','policy');
 }
 function simulationRows(){return state.channels.filter(c=>c.active&&(c.origin==='existing'||rateAt(c,state.month)));}
 function showSimulation(){
@@ -414,7 +414,7 @@ function updateSimulation(){document.querySelectorAll('.gmv-input').forEach(inpu
   const c=channelById(input.dataset.id),gmv=readGmv(input),result=$(`[data-result="${c.id}"]`);
   if(gmv===null){result.innerHTML='<span class="warning-text">请填写有效GMV</span>';return;}
   const d=monthlyDecision(c,gmv);
-  result.innerHTML=`<span class="small">业绩匹配 ${d.matched}%</span><strong class="rate">${d.after}%</strong> ${tag(d.result,d.result==='降档'?'orange':d.result==='升档'?'green':'blue')}<span class="small">${d.reason}</span>`;
+  result.innerHTML=`<span class="small">业绩匹配 ${d.matched===null?'未匹配':d.matched+'%'}</span><strong class="rate">${d.after}%</strong> ${tag(d.result,d.result==='降档'?'orange':d.result==='升档'?'green':'blue')}<span class="small">${d.reason}</span>`;
 });}
 function simulate(){
   const inputs=[...document.querySelectorAll('.gmv-input')];if(!inputs.length)return;
@@ -432,7 +432,7 @@ function simulate(){
   state.recalculations.push({sourceMonth,month,autoApprovedIds,ruleVersion:version.version,created:`${month}-01 00:00:00`,results:results.map(r=>({channelId:r.c.id,before:r.before,after:r.after,matched:r.matched,result:r.result,protection:structuredClone(r.protection)}))});
   state.channels.forEach(c=>c.gmv=0);
   state.month=month;state.demoDate=month+'-01';state.demoClock='00:00:00';autoApprovedIds.push(...processDueApprovals(boundary));render();
-  showDialog(`${monthText(month)}比例记录已生成`,`<div class="sim-header"><span>依据${monthText(sourceMonth)}业绩 · ${monthText(month)}月1日生效 · ${autoApprovedIds.length}条申请已满7天，系统自动生效</span></div><div class="table-wrap"><table class="mini-table"><thead><tr><th>渠道</th><th>原比例</th><th>业绩匹配</th><th>本月生效</th><th>调整结果</th></tr></thead><tbody>${results.map(r=>`<tr><td>${esc(r.c.name)}</td><td>${r.before===null?'—':r.before+'%'}</td><td>${r.matched}%</td><td><b>${r.after}%</b></td><td>${tag(r.result,r.result==='降档'?'orange':'blue')}<span class="small">${r.reason}</span></td></tr>`).join('')}</tbody></table></div>`,`<button class="btn" data-close>关闭</button><button class="btn primary" data-action="next-simulation">继续演示下月</button>`,'wide','simulation');
+  showDialog(`${monthText(month)}比例记录已生成`,`<div class="sim-header"><span>依据${monthText(sourceMonth)}业绩 · ${monthText(month)}月1日生效 · ${autoApprovedIds.length}条申请已满7天，系统自动生效</span></div><div class="table-wrap"><table class="mini-table"><thead><tr><th>渠道</th><th>原比例</th><th>业绩匹配</th><th>本月生效</th><th>调整结果</th></tr></thead><tbody>${results.map(r=>`<tr><td>${esc(r.c.name)}</td><td>${r.before===null?'—':r.before+'%'}</td><td>${r.matched===null?'未匹配':r.matched+'%'}</td><td><b>${r.after}%</b></td><td>${tag(r.result,r.result==='降档'?'orange':'blue')}<span class="small">${r.reason}</span></td></tr>`).join('')}</tbody></table></div>`,`<button class="btn" data-close>关闭</button><button class="btn primary" data-action="next-simulation">继续演示下月</button>`,'wide','simulation');
 }
 function showIp(id){const c=channelById(id);showDialog('可申请的IP',`<div class="detail-company">${company(c)}</div><div class="table-wrap"><table class="mini-table"><thead><tr><th>可申请的IP</th><th>KOC分成比例</th><th>渠道奖励金比例</th></tr></thead><tbody>${c.ips.map((ip,i)=>`<tr><td>${esc(ip)}</td><td>70%</td><td>${i===0?'0.5':'0'}%</td></tr>`).join('')||'<tr><td colspan="3" class="empty">全部合作IP，具体配置复用线上</td></tr>'}</tbody></table></div><p class="detail-tip">上述为模拟配置，复用原型既有信息；本次新增渠道提成比例不替代这两类比例。</p>`,closeButtons,'','channels');}
 function toggleCoop(id){
