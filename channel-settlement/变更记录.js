@@ -1,7 +1,7 @@
 'use strict';
 // 人工配置的每次提交独立留存；后续审批及生效事件附加到同一记录。
 const auditReviewNames={not_required:'无需审批',pending:'待审批',approved:'已通过',rejected:'已驳回',expired:'已过期'};
-const auditEffectNames={confirmed:'待生效',applied:'已生效',superseded:'已替换',not_effective:'未生效',suspended:'暂停执行'};
+const auditExecutionNames={confirmed:'已保存，次月执行',applied:'已执行',superseded:'已被替换',not_effective:'不执行',suspended:'暂停执行'};
 function addAuditEvent(log,label,time=demoTime(),operator=actor().name){
   log.events.push({label,time,operator});
 }
@@ -27,23 +27,24 @@ function auditEffect(log){
   const preset=log.presetId?state.presets.find(p=>p.id===log.presetId):null;
   return preset?.status??log.effectStatus;
 }
+function auditExecutionText(log){
+  const effect=auditEffect(log);
+  if(effect==='confirmed'&&log.review==='approved')return '已通过，次月执行';
+  if(effect==='not_effective'&&log.review==='pending')return '审批后执行';
+  return auditExecutionNames[effect];
+}
 function auditConfigText(config){
   if(!config)return '<span class="muted">首次配置</span>';
   const p=config.protection??noProtection();
-  return `<strong>${config.rate}%</strong><span class="small">${esc(protectionNames[p.mode])}</span>${p.mode==='none'?'':`<span class="small">${esc(protectionRange(p))}</span>`}`;
+  return `<strong>${config.rate==null?'按档位自动匹配':config.rate+'%'}</strong><span class="small">${esc(protectionNames[p.mode])}</span>${p.mode==='none'?'':`<span class="small">${esc(protectionRange(p))}</span>`}`;
 }
 function auditRecords(id){return state.changeLogs.filter(l=>l.channelId===Number(id)).sort((a,b)=>b.submittedAt.localeCompare(a.submittedAt)||Number(b.id.slice(4))-Number(a.id.slice(4)));}
 function renderChangeHistory(id){
   const records=auditRecords(id);
-  return `<div class="audit-count">共 ${records.length} 条变更记录</div><div class="table-wrap"><table class="mini-table audit-table"><thead><tr><th>提交时间／操作人</th><th>适用付款月</th><th>变更内容</th><th>审批状态</th><th>生效状态</th><th>操作</th></tr></thead><tbody>${records.map(log=>{
+  return `<div class="audit-count">共 ${records.length} 条变更记录</div><div class="table-wrap"><table class="mini-table audit-table"><thead><tr><th>提交时间／操作人</th><th>适用付款月</th><th>变更内容</th><th>审批状态</th><th>执行状态</th></tr></thead><tbody>${records.map(log=>{
     const effect=auditEffect(log),target=log.effectiveMonth??log.targetMonth;
-    return `<tr data-change-id="${log.id}"><td>${esc(log.submittedAt)}<span class="small">${esc(log.operator)}</span></td><td>${target?monthText(target):'审批通过当月'}</td><td><div class="audit-diff"><div><label>修改前</label>${auditConfigText(log.before)}</div><div><label>修改后</label>${auditConfigText(log.after)}</div></div></td><td>${tag(auditReviewText(log),log.review==='pending'?'orange':log.review==='rejected'||log.review==='expired'?'red':'blue')}</td><td>${tag(auditEffectNames[effect],effect==='applied'?'green':effect==='confirmed'?'blue':'')}</td><td><button class="link" data-action="change-detail" data-id="${log.id}">查看详情</button></td></tr>`;
-  }).join('')||'<tr><td colspan="6" class="empty">暂无人工配置变更记录</td></tr>'}</tbody></table></div>`;
-}
-function showChangeDetail(id){
-  const log=state.changeLogs.find(l=>l.id===id);if(!log)return;
-  const c=channelById(log.channelId)??log.channelSnapshot;modalContext={configChannelId:log.channelId,configTab:'changes'};
-  showDialog('变更记录详情',`<div class="detail-company">${company(c)}</div><div class="approval-detail"><div><span>记录编号</span>${esc(log.id)}</div><div><span>操作人</span>${esc(log.operator)}</div><div><span>提交时间</span>${esc(log.submittedAt)}</div>${log.approvalId?'<div><span>审核截止时间</span>'+esc(approvalDeadline(state.approvals.find(a=>a.id===log.approvalId)))+'</div>':''}<div><span>适用付款月</span>${log.effectiveMonth||log.targetMonth?monthText(log.effectiveMonth??log.targetMonth):'审批通过当月'}</div><div><span>审批状态</span>${auditReviewText(log)}</div><div><span>生效状态</span>${auditEffectNames[auditEffect(log)]}</div></div><div class="audit-detail-diff"><div><h3>修改前</h3>${auditConfigText(log.before)}</div><div><h3>修改后</h3>${auditConfigText(log.after)}</div></div>${log.effectiveAfter?'<div class="decision-card">实际生效配置：'+auditConfigText(log.effectiveAfter)+'</div>':''}<p class="detail-tip">变更原因：${esc(log.reason)||'未填写'}</p>${log.rejectReason?'<p class="warning-text">驳回原因：'+esc(log.rejectReason)+'</p>':''}<h3 class="detail-heading">处理过程</h3><div class="history-list">${log.events.map(e=>`<div><span></span><p>${esc(e.label)}<small>${esc(e.time)} · ${esc(e.operator)}</small></p></div>`).join('')}</div>`,`<button class="btn" data-action="config-tab" data-value="changes">返回变更记录</button>${closeButtons}`,'wide','config');
+    return `<tr data-change-id="${log.id}"><td>${esc(log.submittedAt)}<span class="small">${esc(log.operator)}</span></td><td>${target?monthText(target):'审批通过当月'}</td><td><div class="audit-diff"><div><label>修改前</label>${auditConfigText(log.before)}</div><div><label>修改后</label>${auditConfigText(log.after)}</div></div></td><td>${tag(auditReviewText(log),log.review==='pending'?'orange':log.review==='rejected'||log.review==='expired'?'red':'blue')}</td><td>${tag(auditExecutionText(log),effect==='applied'?'green':effect==='confirmed'?'blue':'')}</td></tr>`;
+  }).join('')||'<tr><td colspan="5" class="empty">暂无人工配置变更记录</td></tr>'}</tbody></table></div>`;
 }
 function seedChangeHistory(data){
   const c=data.channels.find(c=>c.id===2680097),none=noProtection(),config=(rate,protection=none)=>({rate,protection:structuredClone(protection)});

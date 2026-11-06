@@ -170,9 +170,9 @@ function toggleProtectionHelp(button){
   box.style.left=Math.max(12,Math.min(rect.left,window.innerWidth-width-12))+'px';
   box.style.top=(rect.bottom+10+height<window.innerHeight-12?rect.bottom+10:Math.max(12,rect.top-height-10))+'px';
 }
-function protectionFields(plan,baseMonth,requireSelection=false){
+function protectionFields(plan,baseMonth,requireSelection=false,rateField=''){
   const fixed=plan.mode==='fixed',auto=plan.mode!=='fixed',limited=plan.mode!=='none',months=plan.end?monthDistance(plan.start,plan.end)+1:3;
-  return `<div class="form-field"><label class="required" for="execution-type">提成执行方式${helpButton('protection')}</label><select id="execution-type" name="executionType">${requireSelection?'<option value="" selected>请选择执行方式</option>':''}<option value="auto" ${auto&&!requireSelection?'selected':''}>自动匹配</option><option value="fixed" ${fixed&&!requireSelection?'selected':''}>固定比例</option></select></div><div class="form-field" id="adjustment-field" ${fixed||requireSelection?'hidden':''}><label class="required" for="adjustment-direction">升降方向</label><select id="adjustment-direction" name="adjustmentDirection"><option value="both" ${plan.mode==='none'?'selected':''}>随档调整</option><option value="upOnly" ${plan.mode==='upOnly'?'selected':''}>只升不降</option><option value="downOnly" ${plan.mode==='downOnly'?'selected':''}>只降不升</option></select></div><div id="protection-options" ${!limited||requireSelection?'hidden':''}><div class="form-field"><label class="required" id="term-label" for="protection-term">${fixed?'保护期限':'单向调整期限'}</label><select id="protection-term" name="protectionTerm"><option value="finite" ${!limited||plan.end?'selected':''}>固定月数</option><option value="permanent" ${limited&&plan.end===null?'selected':''}>永久</option></select></div><div class="form-field" id="protection-month-field" ${limited&&plan.end===null?'hidden':''}><label class="required" id="months-label" for="protection-months">${fixed?'保护月数':'单向调整月数'}</label><div class="input-unit"><input id="protection-months" name="protectionMonths" type="number" min="1" step="1" value="${requireSelection?'':months}" data-start="${baseMonth}"><span>个月</span></div></div><p class="form-help" id="protection-period"></p></div>`;
+  return `<div class="form-field"><label class="required" for="execution-type">提成执行方式${helpButton('protection')}</label><select id="execution-type" name="executionType">${requireSelection?'<option value="" selected>请选择执行方式</option>':''}<option value="auto" ${auto&&!requireSelection?'selected':''}>自动匹配</option><option value="fixed" ${fixed&&!requireSelection?'selected':''}>固定比例</option></select></div>${rateField}<div class="form-field" id="adjustment-field" ${fixed||requireSelection?'hidden':''}><label class="required" for="adjustment-direction">升降方向</label><select id="adjustment-direction" name="adjustmentDirection"><option value="both" ${plan.mode==='none'?'selected':''}>随档调整</option><option value="upOnly" ${plan.mode==='upOnly'?'selected':''}>只升不降</option><option value="downOnly" ${plan.mode==='downOnly'?'selected':''}>只降不升</option></select></div><div id="protection-options" ${!limited||requireSelection?'hidden':''}><div class="form-field"><label class="required" id="term-label" for="protection-term">${fixed?'保护期限':'单向调整期限'}</label><select id="protection-term" name="protectionTerm"><option value="finite" ${!limited||plan.end?'selected':''}>固定月数</option><option value="permanent" ${limited&&plan.end===null?'selected':''}>永久</option></select></div><div class="form-field" id="protection-month-field" ${limited&&plan.end===null?'hidden':''}><label class="required" id="months-label" for="protection-months">${fixed?'保护月数':'单向调整月数'}</label><div class="input-unit"><input id="protection-months" name="protectionMonths" type="number" min="1" step="1" value="${requireSelection?'':months}" data-start="${baseMonth}"><span>个月</span></div></div><p class="form-help" id="protection-period"></p></div>`;
 }
 function configurationSummary(record,month=state.month){
   const p=record?.protection??noProtection();
@@ -181,16 +181,16 @@ function configurationSummary(record,month=state.month){
 function nextConfigurationSummary(c){
   const targetMonth=nextMonth(state.month),current=rateAt(c,state.month),preset=confirmedPreset(c,targetMonth);
   if(!c.active){const paused=[...state.presets].reverse().find(p=>p.channelId===c.id&&p.cycleId===c.currentCycleId&&p.status==='suspended');return paused?`已通过配置：<b>${paused.rate}%</b><span>${protectionNames[paused.protection.mode]} · 暂停执行（合作已终止）</span><span>恢复合作需重新配置比例和模式。</span>`:'合作已终止，配置暂停执行；恢复合作需重新配置比例和模式。';}
-  if(preset)return `已确认的次月配置：<b>${preset.rate}%</b><span>${protectionNames[preset.protection.mode]}${preset.protection.mode==='none'?'':' · '+protectionProgress(preset.protection,targetMonth)+' · '+protectionRange(preset.protection)}</span>`;
+  if(preset)return `已确认的次月配置：<b>${preset.rate===null?'按提成档位自动匹配':preset.rate+'%'}</b><span>${protectionNames[preset.protection.mode]}${preset.protection.mode==='none'?'':' · '+protectionProgress(preset.protection,targetMonth)+' · '+protectionRange(preset.protection)}</span>`;
   if(!current)return '暂无当前月生效配置';
   const plan=current.protection??noProtection(),limited=activeProtection(plan,targetMonth);
   if(limited&&plan.mode==='fixed')return `次月比例：<b>${current.rate}%</b><span>固定比例 · ${protectionProgress(plan,targetMonth)} · ${protectionRange(plan)}</span>`;
   return `按照提成档位自动匹配对应的提成比例${limited?'<span>'+protectionNames[plan.mode]+' · '+protectionProgress(plan,targetMonth)+' · '+protectionRange(plan)+'</span>':''}`;
 }
 function commissionFields(c){
-  if(!c)return `<div class="form-field"><label class="required" for="initial-rate">初始提成比例${mark('新增')}</label><div class="input-unit"><input id="initial-rate" name="rate" type="number" min="0" max="100" step="0.01" value="50"><span>%</span></div></div><div class="decision-card" id="rate-decision"></div>${protectionFields(noProtection(),state.month)}<div class="form-field" id="reason-field" hidden><label class="required" for="apply-reason">申请原因</label><textarea id="apply-reason" name="reason"></textarea></div>`;
+  if(!c)return `${protectionFields(noProtection(),state.month)}<div class="form-field"><label class="required" for="initial-rate">初始提成比例${mark('新增')}</label><div class="input-unit"><input id="initial-rate" name="rate" type="number" min="0" max="100" step="0.01" value="50"><span>%</span></div></div><div class="decision-card" id="rate-decision"></div><div class="form-field" id="reason-field" hidden><label class="required" for="apply-reason">申请原因</label><textarea id="apply-reason" name="reason"></textarea></div>`;
   const current=rateAt(c,state.month),targetMonth=nextMonth(state.month),preset=confirmedPreset(c,targetMonth),pending=state.approvals.find(a=>a.channelId===c.id&&a.status==='pending'),plan=preset?.protection??noProtection();
-  let next=pending?`<div class="decision-card orange">已有待审批申请：${pending.rate}%${pending.kind==='preset'?' · '+monthText(pending.targetMonth)+'付款订单':''}<br>该申请处理完成前，不可重复提交次月配置。</div>`:!current?'<div class="decision-card">暂无当前月生效配置，暂不可预设次月比例。</div>':`<div class="next-preview" id="next-summary">${nextConfigurationSummary(c)}</div><div id="preset-fields" data-editing="false" hidden><div class="form-field"><label class="required" for="next-rate">次月预设比例</label><div class="input-unit"><input id="next-rate" name="rate" type="number" min="0" max="100" step="0.01" value="${preset?.rate??''}"><span>%</span></div></div>${protectionFields(plan,targetMonth,!preset)}<div class="form-field" id="reason-field" hidden><label class="required" for="apply-reason">变更原因</label><textarea id="apply-reason" name="reason"></textarea></div><div class="decision-card" id="rate-decision"></div></div>`;
+  let next=pending?`<div class="decision-card orange">已有待审批申请：${pending.rate}%${pending.kind==='preset'?' · '+monthText(pending.targetMonth)+'付款订单':''}<br>该申请处理完成前，不可重复提交次月配置。</div>`:!current?'<div class="decision-card">暂无当前月生效配置，暂不可预设次月比例。</div>':`<div class="next-preview" id="next-summary">${nextConfigurationSummary(c)}</div><div id="preset-fields" data-editing="false" hidden>${protectionFields(plan,targetMonth,!preset,`<div class="form-field" id="next-rate-field"><label class="required" for="next-rate">次月固定比例${mark()}</label><div class="input-unit"><input id="next-rate" name="rate" type="number" min="0" max="100" step="0.01" value="${preset?.rate??''}"><span>%</span></div></div>`)}<div class="form-field" id="reason-field" hidden><label class="required" for="apply-reason">变更原因</label><textarea id="apply-reason" name="reason"></textarea></div><div class="decision-card" id="rate-decision"></div></div>`;
   return `<div class="config-block"><h4>${c.active?'本月配置':'原合作配置（暂停执行）'} · ${monthText(c.active?state.month:(current?.month??state.month))} <span>只读</span></h4>${configurationSummary(current)}</div><div class="config-block"><h4 class="next-config-heading">次月配置 · ${monthText(targetMonth)}${current&&c.active&&!pending?'<button type="button" class="link" id="edit-next-config" data-action="edit-next-config">修改</button><button type="button" class="link" id="cancel-next-config" data-action="cancel-next-config" hidden>取消修改</button>':''}</h4>${next}${current&&!c.active?'<p class="form-help">合作已终止，暂不可预设次月配置。</p>':''}</div>`;
 }
 function showForm(id,resuming=false){
@@ -210,14 +210,14 @@ function readProtection(form,baseMonth){
 }
 function proposedConfig(form,c){
   const targetMonth=nextMonth(state.month),base=confirmedPreset(c,targetMonth),record=rateAt(c,state.month),beforeRate=base?.rate??record?.rate;
-  const oldPlan=base?.protection??record?.protection??noProtection(),d=new FormData(form),raw=String(d.get('rate')??''),rate=Number(raw);
+  const oldPlan=base?.protection??record?.protection??noProtection(),d=new FormData(form),raw=String(d.get('rate')??''),automatic=d.get('executionType')==='auto',rate=automatic?null:Number(raw);
   if(!record)return {error:'暂无本月生效比例。'};
-  if(!/^\d+(?:\.\d{1,2})?$/.test(raw)||rate<0||rate>100)return {error:'请填写0～100的比例，最多两位小数。'};
+  if(!automatic&&(!/^\d+(?:\.\d{1,2})?$/.test(raw)||rate<0||rate>100))return {error:'请填写0～100的比例，最多两位小数。'};
   const p=readProtection(form,targetMonth);
   if(p.error)return p;
   if(!c.active)return {error:'合作已终止，暂不可预设次月配置。'};
-  const changedRate=rate!==beforeRate,changedProtection=JSON.stringify(p.value)!==JSON.stringify(oldPlan);
-  return {rate,protection:p.value,beforeRate,beforeProtection:structuredClone(oldPlan),targetMonth,needsApproval:changedRate,changed:!base||changedRate||changedProtection};
+  const changedRate=!automatic&&rate!==beforeRate,changedProtection=JSON.stringify(p.value)!==JSON.stringify(oldPlan);
+  return {rate,protection:p.value,beforeRate,beforeProtection:structuredClone(oldPlan),targetMonth,needsApproval:changedRate,changed:!base||rate!==base.rate||changedRate||changedProtection};
 }
 function syncCooperationSwitch(){
   const input=$('#coop-status'),button=$('#coop-toggle');if(!input||!button)return;
@@ -244,12 +244,13 @@ function updateFormDecision(){
     const fixed=setting.value==='fixed',auto=setting.value==='auto',direction=$('#adjustment-direction').value;
     $('#adjustment-field').hidden=!auto;$('#protection-options').hidden=!(fixed||(auto&&direction!=='both'));$('#protection-month-field').hidden=term.value==='permanent';
     $('#term-label').textContent=fixed?'保护期限':'单向调整期限';$('#months-label').textContent=fixed?'保护月数':'单向调整月数';
+    if(existing&&$('#next-rate')){$('#next-rate-field').hidden=!fixed;$('#next-rate').disabled=!fixed;}
     const p=readProtection(form,existing?nextMonth(state.month):state.month);$('#protection-period').textContent=p.error?'请填写有效月数':protectionRange(p.value);
   }
   if(existing&&!presetEditing){$('#save-channel').textContent='保存基础资料';return;}
   const raw=existing?$('#next-rate').value:$('#initial-rate').value,rate=Number(raw),proposal=existing?proposedConfig(form,c):null,review=existing?proposal.changed&&proposal.needsApproval:rate>50;
   $('#reason-field').hidden=!review;$('#save-channel').textContent=review?'提交审批':existing?'保存次月配置':modalContext.resuming?'恢复并生效':'保存并生效';
-  if(existing)$('#rate-decision').textContent=proposal.error||(!proposal.changed?'次月配置未发生变更。':proposal.needsApproval?'提交后有7天审核期，超时自动生效。同月通过于次月生效；跨月通过或超时生效，覆盖生效月整月付款订单。':'模式与保护期无需审批，保存后于'+monthChinese(nextMonth(state.month))+'1日生效，当前月配置保持不变。');
+  if(existing)$('#rate-decision').textContent=proposal.error||(!proposal.changed?'次月配置未发生变更。':proposal.needsApproval?'提交后有7天审核期，超时自动生效。同月通过于次月生效；跨月通过或超时生效，覆盖生效月整月付款订单。':(setting.value==='auto'?'按照提成档位自动匹配对应比例；未命中保持当前比例。模式与保护期无需审批，保存后于':'模式与保护期无需审批，保存后于')+monthChinese(nextMonth(state.month))+'1日生效，当前月配置保持不变。');
   else{
     const coop=$('#coop-status');if(rate>50&&!coop.disabled)coop.dataset.normalValue=coop.value;
     if(rate<=50&&coop.disabled)coop.value=coop.dataset.normalValue||'true';if(rate>50)coop.value='false';coop.disabled=rate>50;
@@ -453,7 +454,7 @@ document.addEventListener('click',e=>{
     tab:()=>{state.tab=value;state.page=1;$('#metric-popover').hidden=true;render();},
     'reset-filter':()=>{state.filters[activeFilterKey()]=state.view==='channels'?{q:'',status:'',dateStart:'',dateEnd:''}:{q:'',slotQ:'',type:'',month:'',dateStart:'',dateEnd:''};state.page=1;render();},
     'slot-orders':()=>showSlotOrders(id),
-    'config-tab':()=>showConfig(modalContext.configChannelId,value),'change-detail':()=>showChangeDetail(id),'approval-changes':()=>showConfig(Number(id),'changes'),
+    'config-tab':()=>showConfig(modalContext.configChannelId,value),'approval-changes':()=>showConfig(Number(id),'changes'),
     'toggle-form-coop':toggleFormCooperation,
     'edit-next-config':()=>setPresetEditing(true),'cancel-next-config':()=>setPresetEditing(false),
     create:()=>showForm(),edit:()=>showForm(id),config:()=>showConfig(id),bill:()=>showBill(id),orders:()=>showOrders(id),ip:()=>showIp(id),policy:showPolicy,'rule-config':showRuleConfig,

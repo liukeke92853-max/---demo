@@ -18,9 +18,9 @@ const executionName=(p,month)=>activeProtection(p,month)?protectionNames[p.mode]
 const protectionText=c=>executionName(currentProtection(c),state.month);
 const confirmedPreset=(c,month)=>[...state.presets].reverse().find(p=>p.channelId===c.id&&p.targetMonth===month&&p.cycleId===c.currentCycleId&&p.status==='confirmed');
 function monthlyDecision(c,gmv,month=state.month){
-  const targetMonth=nextMonth(month),current=rateAt(c,month),before=current?.rate??null,matched=tierRate(gmv,month),preset=confirmedPreset(c,targetMonth),plan=structuredClone(current?.protection??noProtection());
-  if(preset)return {before,matched,after:preset.rate,protection:structuredClone(preset.protection),result:'人工配置',reason:'已确认的次月配置 · '+protectionNames[preset.protection.mode],presetId:preset.id};
-  if(matched===null)return {before,matched:null,after:before,protection:activeProtection(plan,targetMonth)?plan:noProtection(),result:before===null?'缺少当前比例':'保持',reason:'未匹配提成档位，保持当前生效比例',presetId:null};
+  const targetMonth=nextMonth(month),current=rateAt(c,month),before=current?.rate??null,matched=tierRate(gmv,month),preset=confirmedPreset(c,targetMonth),plan=structuredClone(preset?.protection??current?.protection??noProtection());
+  if(preset&&preset.rate!==null)return {before,matched,after:preset.rate,protection:structuredClone(preset.protection),result:'人工配置',reason:'已确认的次月配置 · '+protectionNames[preset.protection.mode],presetId:preset.id};
+  if(matched===null)return {before,matched:null,after:before,protection:activeProtection(plan,targetMonth)?plan:noProtection(),result:before===null?'缺少当前比例':'保持',reason:'未匹配提成档位，保持当前生效比例',presetId:preset?.id??null};
   let after=matched,result=before===null?'首次生成':matched>before?'升档':matched<before?'降档':'保持';
   if(before!==null&&activeProtection(plan,targetMonth)){
     if(plan.mode==='fixed')after=before;
@@ -29,7 +29,7 @@ function monthlyDecision(c,gmv,month=state.month){
     if(after!==matched)result='维持原比例';
   }
   const reason=activeProtection(plan,targetMonth)?protectionNames[plan.mode]+' · '+protectionProgress(plan,targetMonth):plan.mode!=='none'?'保护已到期，按业绩匹配':'按业绩匹配';
-  return {before,matched,after,protection:activeProtection(plan,targetMonth)?plan:noProtection(),result,reason,presetId:null};
+  return {before,matched,after,protection:activeProtection(plan,targetMonth)?plan:noProtection(),result,reason,presetId:preset?.id??null};
 }
 let ruleDraft=null;
 function editableRuleVersion(){return ruleVersionFor(state.month);}
@@ -54,9 +54,9 @@ function removeTier(index){
   ruleDraft[index-1].max=ruleDraft[index].max;ruleDraft.splice(index,1);renderRuleRows();
 }
 function showRuleConfig(){
-  const version=editableRuleVersion(),canEdit=state.role==='approver',effectiveMonth=state.month;
+  const version=editableRuleVersion(),canEdit=state.role==='approver';
   ruleDraft=version.tiers.map(t=>({min:String(t.min/1000000),max:t.max===null?null:String(t.max/1000000),rate:String(t.rate)}));
-  showDialog('提成档位配置',`<div class="rules-overview"><div><span class="small">统计指标</span><b>渠道当月付款GMV</b></div><div><span class="small">统计规则</span><b>付款自然月</b></div><div><span class="small">执行方式</span><b>匹配次月提成档位</b></div></div><p class="form-help">按渠道当月付款GMV匹配次月提成档位；未命中配置区间时，当前生效比例保持不变。</p><div class="rule-effective"><span>规则适用统计月：${monthText(effectiveMonth)}起</span><span>首次计算付款月：${monthText(nextMonth(effectiveMonth))}</span></div><form id="rules-form" novalidate><div class="table-wrap"><table class="mini-table rules-table"><thead><tr><th>月度GMV区间（万元）</th><th>提成比例</th><th>操作</th></tr></thead><tbody id="rule-rows"></tbody></table></div><p class="form-error" id="rules-error" role="alert"></p></form><details class="rules-history"><summary>规则变更记录 · 共${state.ruleVersions.length}条</summary><div class="table-wrap"><table class="mini-table"><thead><tr><th>修改时间</th><th>适用统计月</th><th>修改人</th><th>提成档位</th></tr></thead><tbody>${[...state.ruleVersions].sort((a,b)=>b.savedAt.localeCompare(a.savedAt)||b.version-a.version).map(v=>`<tr><td>${esc(v.savedAt)}</td><td>${monthText(v.effectiveMonth)}起</td><td>${esc(v.operator)}</td><td>${v.tiers.map((t,i)=>`${gmvRangeText(t,i===0)}：${t.rate}%`).join('<br>')}</td></tr>`).join('')}</tbody></table></div></details>`,`<button class="btn" data-close>${canEdit?'取消':'关闭'}</button>${canEdit?'<button class="btn primary" form="rules-form" type="submit">保存规则</button>':''}`,'wide','rules');renderRuleRows();
+  showDialog('提成档位配置',`<div class="rules-overview"><div><span class="small">统计指标</span><b>渠道当月付款GMV</b></div><div><span class="small">统计规则</span><b>付款自然月</b></div><div><span class="small">执行方式</span><b>匹配次月提成档位</b></div></div><p class="form-help">按渠道当月付款GMV匹配次月提成档位；未命中配置区间时，当前生效比例保持不变。</p><form id="rules-form" novalidate><div class="table-wrap"><table class="mini-table rules-table"><thead><tr><th>月度GMV区间（万元）</th><th>提成比例</th><th>操作</th></tr></thead><tbody id="rule-rows"></tbody></table></div><p class="form-error" id="rules-error" role="alert"></p></form><details class="rules-history"><summary>规则变更记录 · 共${state.ruleVersions.length}条</summary><div class="table-wrap"><table class="mini-table"><thead><tr><th>修改时间</th><th>适用统计月</th><th>修改人</th><th>提成档位</th></tr></thead><tbody>${[...state.ruleVersions].sort((a,b)=>b.savedAt.localeCompare(a.savedAt)||b.version-a.version).map(v=>`<tr><td>${esc(v.savedAt)}</td><td>${monthText(v.effectiveMonth)}起</td><td>${esc(v.operator)}</td><td>${v.tiers.map((t,i)=>`${gmvRangeText(t,i===0)}：${t.rate}%`).join('<br>')}</td></tr>`).join('')}</tbody></table></div></details>`,`<button class="btn" data-close>${canEdit?'取消':'关闭'}</button>${canEdit?'<button class="btn primary" form="rules-form" type="submit">保存规则</button>':''}`,'wide','rules');renderRuleRows();
 }
 function saveRules(){
   if(state.role!=='approver')return;ruleDraft=readRuleDraft();
