@@ -75,7 +75,6 @@ function buildTable(head,rows){return `<table class="data-table"><thead><tr>${he
 function render(){
   hideHelp();
   model=calculate(state.filters);
-  $('#scope').innerHTML=`<i class="scope-dot"></i><b>${esc(state.filters.start)} 至 ${esc(state.filters.end)}</b>申请的账号，追踪至统计截止时刻 <span>·</span> ${esc(state.filters.chain)} <span>·</span> 按账号去重`;
   const total=model.accounts.length;
   const cards=[['total','申请账号数','申请记录 '+model.records.length+' 条 '+help('申请记录数')],['mcn',state.filters.chain==='IP绑定KOC'?'已绑定完成':'MCN绑定完成',state.filters.chain==='IP绑定KOC'?'后台已绑定成功':'账号及结算均已完成'],['cooperation','已合作转化','曾进入已合作'],['processing','当前处理中','含解绑处理中'],['ended','当前已结束','按本批最新申请判断']];
   $('#metrics').hidden=state.tab!=='overview';
