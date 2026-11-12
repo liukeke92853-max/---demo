@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>达人转化分析 · V1.0</title><link rel="stylesheet" href="分析.css?v=20261112-549dd2f964fd"></head>
+<body>
+<div class="review"><b>达人授权 · 转化分析 V1.0</b><span>需求评审 · 模拟数据</span><div class="review-actions"><button id="mode-demo" class="selected">交互演示</button><button id="mode-prd">完整需求说明</button><a href="#page-prd">当前页面 PRD ↓</a></div></div>
+<header class="topbar"><div class="logo" aria-hidden="true"></div><b>切片管理中心</b><span class="top-sub">业管后台</span><span class="user-avatar">业</span></header>
+<div class="layout"><aside class="sidebar"><div class="side-title">授权管理</div><a href="./授权流程.html">达人授权</a><a class="active" href="index.html">达人转化分析 <i class="new">新增</i></a><div class="side-divider"></div><div class="side-title secondary">经营分析</div><a href="../order-analysis-admin-v1.html">订单分析</a></aside>
+<main>
+<div id="business">
+<div class="page-title"><div><div class="eyebrow">达人授权 / 分析</div><h1>达人转化分析 <i class="new">新增</i></h1></div><div class="title-actions"><span class="snapshot">统计截至 <b>2026-11-05 18:00</b></span></div></div>
+<section class="card filter-card"><form id="filters">
+<div class="filter-grid"><div class="date-filter"><div class="filter-label">申请日期 <i class="new">新增</i></div><div class="date-range"><input type="date" id="start" value="2026-10-01" max="2026-11-05" required aria-label="申请开始日期"><span>—</span><input type="date" id="end" value="2026-10-31" max="2026-11-05" required aria-label="申请结束日期"></div></div><label>申请链路 <i class="new">新增</i><select id="chain"><option>自主绑定KOC</option><option>IP绑定KOC</option></select></label><label>达人来源 <i class="new">新增</i><select id="source"><option value="">全部来源</option><option>平台达人</option><option>渠道达人</option></select></label><label>所属渠道 <i class="new">新增</i><select id="channel"><option value="">全部渠道</option><option>光鳍联盟</option><option>星河机构</option></select></label><label>所属导师 <i class="new">新增</i><select id="mentor"><option value="">全部导师</option><option>甜梨</option><option>林老师</option><option>周老师</option><option>未分配</option></select></label><label>合作IP <i class="new">新增</i><select id="ip"><option value="">全部IP</option><option>小咖吃喝</option><option>好好生活</option><option>老琴私服</option><option>暂无意向</option></select></label><div class="filter-actions"><button class="primary" type="submit">查询</button><button type="button" id="reset" class="plain">重置</button></div></div>
+<p id="filter-error" class="error" role="alert"></p><div class="scope" id="scope"></div>
+</form></section>
+<nav class="tabs" aria-label="分析页面"><button data-tab="overview" class="active" aria-selected="true">转化概览 <i class="new">新增</i></button><button data-tab="efficiency" aria-selected="false">节点效率 <i class="new">新增</i></button><button data-tab="loss" aria-selected="false">流失分析 <i class="new">新增</i></button></nav>
+<section id="metrics" class="metrics" aria-label="转化概览指标"></section>
+<div id="content"></div>
+</div>
+<section class="card prd" id="page-prd"></section>
+<section class="card prd" id="full-prd" hidden></section>
+</main></div>
+<script src="演示数据.js?v=20261112-549dd2f964fd"></script><script src="明细口径.js?v=20261112-549dd2f964fd"></script><script src="规则.js?v=20261112-549dd2f964fd"></script><script src="分析.js?v=20261112-549dd2f964fd"></script>
+</body></html>
