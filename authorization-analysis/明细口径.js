@@ -35,7 +35,6 @@
     let rows;
     switch(type){
       case 'total':rows=accounts;break;
-      case 'processing':rows=accounts.filter(r=>active(r)||r.outcome==='unbinding');break;
       case 'ended':rows=accounts.filter(ended);break;
       case 'current-coop':rows=accounts.filter(r=>!ended(r)&&r.outcome==='active'&&r.node==='cooperation');break;
       case 'pending':rows=accounts.filter(r=>r.outcome==='unbinding');break;
@@ -56,7 +55,7 @@
     return {rows,grain:applications?'application':'account'};
   }
   function describe(s={}){
-    const labels={total:'申请账号',processing:'当前处理中',ended:'当前已结束','current-coop':'当前合作中',pending:'解绑处理中'};
+    const labels={total:'申请账号',ended:'当前已结束','current-coop':'当前合作中',pending:'解绑处理中'};
     if(labels[s.type])return labels[s.type];
     if(['stock','ended-stage'].includes(s.type))return (s.type==='stock'?'当前停留：':'从此结束：')+(milestoneLabels[s.key]||s.key)+'之后';
     if(s.type==='owner')return '等待'+s.value;
@@ -112,7 +111,6 @@
       case 'backlog':case 'age':ids=originNodes[scope.value]||[];break;
       case 'current-coop':ids=['cooperation'];break;
       case 'pending':ids=['cleanup','unbind'];break;
-      case 'processing':ids=[...Object.keys(nodes).filter(id=>id!=='cooperation'),'cleanup','unbind'];break;
       case 'ended':case 'group-ended':ids=['rejected','failed','unbinded'];break;
       case 'ended-stage':ids=scope.key==='cooperated'?['unbinded']:['rejected','failed','unbinded'];break;
       case 'loss-type':ids=scope.key==='pending'?['cleanup','unbind']:scope.key==='before'?['rejected','failed','unbinded']:['unbinded'];break;
