@@ -91,10 +91,10 @@ function makeApplication(index, forcedStart, forcedChain){
   if(index%5===2&&endTime<AS_OF){
     r.exitSource=current.group;r.exitNode=current.node;r.exitAt=endTime;
     const hasMcn=chain==='IP绑定KOC'?!!r.reached.cooperated:!!r.reached.account;
-    const transfer=(chain==='IP绑定KOC'?hasMcn:!!r.reached.settlement)&&index%4===2;
-    r.reason=transfer?'所选IP要求绑定IP方MCN':index%9===2?'联系不上达人':index%9===7?'未记录原因':'达人主动放弃';
+    const requiresIpMcn=(chain==='IP绑定KOC'?hasMcn:!!r.reached.settlement)&&index%4===2;
+    r.reason=requiresIpMcn?'所选IP要求绑定IP方MCN':index%9===2?'联系不上达人':index%9===7?'未记录原因':'达人主动放弃';
     if(['account','settlement'].includes(r.node)&&index%2===0&&current.entered+8*DAY<AS_OF){r.reason='超时未流转';r.exitAt=current.entered+8*DAY;}
-    r.outcome=transfer?'transfer':hasMcn?'exited':'ended';
+    r.outcome=hasMcn?'exited':'ended';
     if(r.outcome==='ended')r.endKind='rejected';
     // 账号绑定失败为终止，归入结束；保留实际失败环节、原因及时间。
     if(r.outcome==='ended'&&r.node==='account'){
@@ -109,8 +109,8 @@ function makeApplication(index, forcedStart, forcedChain){
       r.events.push({at:initiatedAt,label:'进入后续解绑流程',detail:'解绑尚未完成，仍为处理中，不计入已结束或已退出'});
     }else{
       r.exitAt=hasMcn?Math.min(completed,AS_OF):r.exitAt;
-      current.exited=r.exitAt;current.result=transfer?'转绑退出':hasMcn?'解绑完成':'结束';
-      if(hasMcn)r.events.push({at:r.exitAt,label:'解除我方MCN绑定完成',detail:transfer?'退出我方机构；切片业务是否继续单独核实':'原因：'+r.reason});
+      current.exited=r.exitAt;current.result=hasMcn?'解绑完成':'结束';
+      if(hasMcn)r.events.push({at:r.exitAt,label:'解除我方MCN绑定完成',detail:'原因：'+r.reason});
     }
   }
   r.events.sort((a,b)=>a.at-b.at);

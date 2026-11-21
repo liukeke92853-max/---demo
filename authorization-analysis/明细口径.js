@@ -1,6 +1,6 @@
 /* 看板入口与授权页共用的明细筛选口径；传入已完成全局筛选的申请记录。 */
 (()=>{
-  const ended=r=>r.nativeTab==='failed'||r.endKind==='failed'||['ended','exited','transfer'].includes(r.outcome);
+  const ended=r=>r.nativeTab==='failed'||r.endKind==='failed'||['ended','exited'].includes(r.outcome);
   const unique=rows=>[...new Map([...rows].sort((a,b)=>(a.appliedAt||0)-(b.appliedAt||0)).map(r=>[r.accountId,r])).values()];
   const nodes={qualification:['申请审核','内部审核'],sample:['申请审核','内部审核'],mentor:['导师分配','内部处理'],ipSubmit:['IP审核','达人操作'],ipReview:['IP审核','内部审核'],ipRevise:['IP审核','达人操作'],account:['账号绑定','达人操作'],settlement:['结算绑定','达人操作'],fourSubmit:['四件套审核','达人操作'],fourReview:['四件套审核','内部审核'],fourRevise:['四件套审核','达人操作'],uid:['UID绑定','内部处理'],cooperation:['已合作','已完成']};
   const buckets={qualification:'apply',sample:'apply',mentor:'approved',ipSubmit:'approved',ipReview:'ipSubmitted',ipRevise:'ipSubmitted',account:'ipPassed',settlement:'account',fourSubmit:'settlement',fourReview:'settlement',fourRevise:'settlement',uid:'fourPassed',cooperation:'cooperated'};
@@ -8,7 +8,7 @@
   const nodeLabels={qualification:'资质审核',sample:'样片审核',mentor:'待分配导师',ipSubmit:'IP审核 · 待提交',ipReview:'IP审核 · 待审核',ipRevise:'IP审核 · 驳回待修改',account:'账号绑定',settlement:'结算绑定',fourSubmit:'四件套 · 待提交资料',fourReview:'四件套 · 待审核',fourRevise:'四件套 · 驳回待修改',uid:'UID绑定',cooperation:'已合作'};
   const currentBucket=r=>r.chain==='IP绑定KOC'&&r.node==='uid'?'ipPassed':buckets[r.node];
   const active=r=>!ended(r)&&r.outcome==='active'&&r.node!=='cooperation';
-  const lossGroup=r=>r.outcome==='transfer'?'transfer':r.reached?.cooperated?'after':r.historyComplete===false?null:'before';
+  const lossGroup=r=>r.reached?.cooperated?'after':r.historyComplete===false?null:'before';
   const inLoss=(r,range)=>ended(r)&&(range==='all'||!range||lossGroup(r)===range);
   function ageBucket(r,asOf){const entered=r.episodes?.at(-1)?.entered;if(!Number.isFinite(entered))return null;const hours=(asOf-entered)/3600000;return hours<0?null:hours<24?0:hours<72?1:hours<=168?2:3;}
   function select(records,scope={},asOf){
@@ -47,8 +47,8 @@
     if(s.type==='age')return s.value+' · '+['不足1天','1至不足3天','3至7天','超过7天'][s.key];
     if(s.type==='node')return '当前积压：'+(nodeLabels[s.key]||s.key);
     if(s.type==='group'||s.type==='group-ended')return (s.type==='group-ended'?'当前已结束 · ':'')+'分组：'+s.value;
-    if(s.type==='loss-type')return {before:'合作前结束',after:'合作后结束',transfer:'转绑IP方MCN',pending:'解绑处理中'}[s.key]||'';
-    const range={all:'全部结束申请',before:'合作前结束',after:'合作后结束',transfer:'转绑IP方MCN'}[s.range||'all'];
+    if(s.type==='loss-type')return {before:'合作前结束',after:'合作后结束',pending:'解绑处理中'}[s.key]||'';
+    const range={all:'全部结束申请',before:'合作前结束',after:'合作后结束'}[s.range||'all'];
     if(s.type==='loss-stage')return range+' · 发起环节：'+s.value;
     if(s.type==='loss-reason')return range+' · 原因：'+s.value;
     return range;
@@ -99,8 +99,8 @@
       case 'ended':case 'group-ended':ids=['rejected','failed','unbinded'];break;
       case 'ended-stage':ids=scope.key==='cooperated'?['unbinded']:['rejected','failed','unbinded'];break;
       case 'loss-type':ids=scope.key==='pending'?['cleanup','unbind']:scope.key==='before'?['rejected','failed','unbinded']:['unbinded'];break;
-      case 'loss-stage':ids=['after','transfer'].includes(scope.range)?['unbinded']:['rejected','failed','unbinded'];break;
-      case 'loss-reason':case 'loss-all':ids=['after','transfer'].includes(scope.range)||scope.value==='所选IP要求绑定IP方MCN'?['unbinded']:['rejected','failed','unbinded'];break;
+      case 'loss-stage':ids=scope.range==='after'?['unbinded']:['rejected','failed','unbinded'];break;
+      case 'loss-reason':case 'loss-all':ids=scope.range==='after'?['unbinded']:['rejected','failed','unbinded'];break;
       default:ids=destinations.map(d=>d.id);
     }
     const targets=ids.map(id=>destination(id,chain)).filter(Boolean);
@@ -113,7 +113,7 @@
     if(record.nativeTab)return {tab:record.nativeTab};
     if(record.endKind==='failed')return destination('failed',record.chain);
     if(record.outcome==='unbinding')return destination(record.unbindStep==='cleanup'?'cleanup':'unbind',record.chain);
-    if(['exited','transfer'].includes(record.outcome))return destination('unbinded',record.chain);
+    if(record.outcome==='exited')return destination('unbinded',record.chain);
     if(record.outcome==='ended')return destination(record.endKind==='failed'?'failed':'rejected',record.chain);
     return destination(record.node,record.chain);
   }
