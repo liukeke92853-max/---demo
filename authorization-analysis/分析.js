@@ -11,8 +11,8 @@ const hours=h=>h==null?'—':h<24?h.toFixed(1)+'小时':(h/24).toFixed(1)+'天';
 const isEnded=AnalysisDrill.isEnded;
 const isProcessing=r=>!isEnded(r)&&(r.outcome==='unbinding'||AnalysisDrill.isActive(r));
 const isCurrentCoop=r=>!isEnded(r)&&r.outcome==='active'&&r.node==='cooperation';
-const ageHours=r=>Math.max(0,(AS_OF-r.episodes.at(-1).entered)/HOUR);
-const ageBucket=r=>ageHours(r)<24?0:ageHours(r)<72?1:ageHours(r)<=168?2:3;
+const ageHours=r=>{const entered=AnalysisDrill.waitingEntered(r);return Number.isFinite(entered)&&entered<=AS_OF?(AS_OF-entered)/HOUR:null;};
+const ageBucket=r=>AnalysisDrill.ageBucket(r,AS_OF);
 const currentBucket=AnalysisDrill.currentBucket;
 const scopeLoss=rows=>rows.filter(r=>state.lossScope==='all'||lossGroup(r)===state.lossScope);
 const bindingRows=(records,chain)=>unique(records.filter(r=>chain==='IP绑定KOC'?r.reached.cooperated:r.reached.account&&r.reached.settlement));
@@ -110,7 +110,7 @@ function groupAccounts(key){
   for(const a of model.accounts){const value=a[key]==='—'?'无所属渠道':a[key];if(!groups.has(value))groups.set(value,new Set());groups.get(value).add(a.accountId);}
   return [...groups].map(([name,ids])=>[name,model.records.filter(r=>ids.has(r.accountId))]).sort((a,b)=>unique(b[1]).length-unique(a[1]).length);
 }
-function completedEpisodes(node){return model.records.flatMap(r=>r.episodes.filter(e=>e.node===node&&e.exited!=null&&['完成','驳回'].includes(e.result)).map(e=>({...e,record:r,hours:(e.exited-e.entered)/HOUR})));}
+function completedEpisodes(node){if(node==='review')return AnalysisDrill.reviewEpisodes(model.records);return model.records.flatMap(r=>r.episodes.filter(e=>e.node===node&&e.exited!=null&&['完成','驳回'].includes(e.result)).map(e=>({...e,record:r,hours:(e.exited-e.entered)/HOUR})));}
 function median(values){if(!values.length)return null;const a=[...values].sort((a,b)=>a-b);return a.length%2?a[Math.floor(a.length/2)]:(a[a.length/2-1]+a[a.length/2])/2;}
 function renderEfficiency(){
   const owners=['达人操作','内部审核','内部处理'];
@@ -120,13 +120,14 @@ function renderEfficiency(){
   const max=Math.max(1,...groups.map(g=>model.active.filter(r=>nodeDefs[r.node].group===g).length));
   const backlog=groups.map(group=>{
     const rows=model.active.filter(r=>nodeDefs[r.node].group===group);
-    return `<div class="backlog-row"><div class="backlog-label"><span>${group}</span>${statLink(rows.length,{type:'backlog',value:group})}</div><div class="age-track">${rows.length?ages.map((label,k)=>{const n=rows.filter(r=>ageBucket(r)===k).length;return n?`<a ${linkAttrs({type:'age',key:String(k),value:group})} class="age-segment age-${k}" style="width:${n/max*100}%" title="${group} · ${label}：${n}人" aria-label="${group}，${label}，${n}人">${n}</a>`:'';}).join(''):'<span class="backlog-empty">无当前积压</span>'}</div></div>`;
+    return `<div class="backlog-row"><div class="backlog-label"><span>${group==='申请审核'?'待审核':group}</span>${statLink(rows.length,{type:'backlog',value:group})}</div><div class="age-track">${rows.length?ages.map((label,k)=>{const n=rows.filter(r=>ageBucket(r)===k).length;return n?`<a ${linkAttrs({type:'age',key:String(k),value:group})} class="age-segment age-${k}" style="width:${n/max*100}%" title="${group} · ${label}：${n}人" aria-label="${group}，${label}，${n}人">${n}</a>`:'';}).join(''):'<span class="backlog-empty">无当前积压</span>'}</div></div>`;
   }).join('');
   const workload=owners.map(owner=>{const n=model.active.filter(r=>nodeDefs[r.node].owner===owner).length;return `<div class="bar-row"><span class="bar-label">等待${owner} ${help('等待'+owner)}</span><div class="bar-track"><div class="bar-value" style="width:${model.active.length?n/model.active.length*100:0}%"></div></div>${statLink(n,{type:'owner',value:owner})}</div>`;}).join('');
-  const efficiency=Object.entries(nodeDefs).filter(([k])=>k!=='cooperation'&&(state.filters.chain!=='IP绑定KOC'||AnalysisDrill.ipNodeIds.includes(k))).map(([key,n])=>{
-    const waiting=model.active.filter(r=>r.node===key),episodes=completedEpisodes(key),durations=episodes.map(e=>e.hours);
-    const rejects=episodes.filter(e=>e.result==='驳回');
-    return `<tr><td class="node-cell"><b>${n.label}</b><small>${n.owner}</small></td><td class="right">${statLink(waiting.length,{type:'node',key})}</td><td class="right">${waiting.length?hours(Math.max(...waiting.map(ageHours))):'—'}</td><td class="right">${statNumber(episodes.length)}<small>轮次</small></td><td class="right">${hours(median(durations))}</td><td class="right">${statNumber(rejects.length)}<small>次</small></td></tr>`;
+  const efficiencyNodes=[['review',{label:'待审核',owner:'内部审核'}],...Object.entries(nodeDefs).filter(([k])=>!['qualification','sample','cooperation'].includes(k)&&(state.filters.chain!=='IP绑定KOC'||AnalysisDrill.ipNodeIds.includes(k)))];
+  const efficiency=efficiencyNodes.map(([key,n])=>{
+    const waiting=AnalysisDrill.select(model.records,{type:'node',key},AS_OF).rows,episodes=completedEpisodes(key),durations=episodes.map(e=>e.hours);
+    const rejects=episodes.filter(e=>e.result==='驳回'),ages=waiting.map(ageHours).filter(Number.isFinite);
+    return `<tr><td class="node-cell"><b>${n.label}${key==='review'?help('待审核')+'<i class="new">改造</i>':''}</b><small>${n.owner}</small></td><td class="right">${statLink(waiting.length,{type:'node',key})}</td><td class="right">${ages.length?hours(Math.max(...ages)):'—'}</td><td class="right">${statNumber(episodes.length)}<small>轮次</small></td><td class="right">${hours(median(durations))}</td><td class="right">${statNumber(rejects.length)}<small>次</small></td></tr>`;
   }).join('');
   return `<section class="card"><div class="section-head"><div><h2>当前等待分布 ${mark}</h2><p>仅统计尚在等待流转的账号；已合作与已结束不混入积压</p></div><span class="pill">当前积压 ${model.active.length} 人 ${help('当前积压')}</span></div><div class="sub-kpis">${kpis}</div><div class="two-col" style="gap:28px"><div><div class="section-head"><h3>节点停留时长 ${help('节点停留时长')} ${mark}</h3></div><div class="legend" style="margin-bottom:20px">${ages.map((a,k)=>`<span><i class="age-${k}"></i>${a} ${help(a)}</span>`).join('')}</div>${backlog}</div><div><h3 style="margin-bottom:15px">等待类型占比 ${help('等待类型占比')} ${mark}</h3>${workload}<div class="branch" style="margin-top:25px"><span>解绑处理中 ${help('解绑处理中','解绑处理中人数')} ${statLink(model.pending.length,{type:'pending'})} 人</span></div><p class="annotation">IP待提交、驳回待修改需达人操作；IP待审核需内部审核。两种等待分别计算本轮停留。</p></div></div></section><section class="card"><div class="section-head"><div><h2>节点处理效率 ${mark}</h2><p>完成耗时按每轮真实进入和处理时间计算，驳回与重提保留完整轮次</p></div><span class="minor-label">耗时中位数</span></div><div class="table-scroll">${buildTable(['节点 / 等待类型','当前积压','最长停留','已处理轮次','耗时中位数','驳回次数'],efficiency)}</div><p class="annotation">仅完整处理轮次参与耗时计算；终止或解绑中断的轮次不混入。超过7天的停留不直接视为流失。</p></section>`;
 }

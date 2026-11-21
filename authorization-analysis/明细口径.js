@@ -5,12 +5,29 @@
   const nodes={qualification:['申请审核','内部审核'],sample:['申请审核','内部审核'],mentor:['导师分配','内部处理'],ipSubmit:['IP审核','达人操作'],ipReview:['IP审核','内部审核'],ipRevise:['IP审核','达人操作'],account:['账号绑定','达人操作'],settlement:['结算绑定','达人操作'],fourSubmit:['四件套审核','达人操作'],fourReview:['四件套审核','内部审核'],fourRevise:['四件套审核','达人操作'],uid:['UID绑定','内部处理'],cooperation:['已合作','已完成']};
   const buckets={qualification:'apply',sample:'apply',mentor:'approved',ipSubmit:'approved',ipReview:'ipSubmitted',ipRevise:'ipSubmitted',account:'ipPassed',settlement:'account',fourSubmit:'settlement',fourReview:'settlement',fourRevise:'settlement',uid:'fourPassed',cooperation:'cooperated'};
   const milestoneLabels={apply:'提交申请',approved:'申请审核通过',ipSubmitted:'确认IP并提交',ipPassed:'IP审核通过',account:'账号绑定完成',settlement:'结算绑定完成',fourPassed:'四件套审核通过',cooperated:'进入已合作'};
-  const nodeLabels={qualification:'资质审核',sample:'样片审核',mentor:'待分配导师',ipSubmit:'IP审核 · 待提交',ipReview:'IP审核 · 待审核',ipRevise:'IP审核 · 驳回待修改',account:'账号绑定',settlement:'结算绑定',fourSubmit:'四件套 · 待提交资料',fourReview:'四件套 · 待审核',fourRevise:'四件套 · 驳回待修改',uid:'UID绑定',cooperation:'已合作'};
+  const nodeLabels={review:'待审核',qualification:'资质审核',sample:'样片审核',mentor:'待分配导师',ipSubmit:'IP审核 · 待提交',ipReview:'IP审核 · 待审核',ipRevise:'IP审核 · 驳回待修改',account:'账号绑定',settlement:'结算绑定',fourSubmit:'四件套 · 待提交资料',fourReview:'四件套 · 待审核',fourRevise:'四件套 · 驳回待修改',uid:'UID绑定',cooperation:'已合作'};
   const currentBucket=r=>r.chain==='IP绑定KOC'&&r.node==='uid'?'ipPassed':buckets[r.node];
+  const reviewNodes=['qualification','sample'];
+  const waitingEntered=r=>reviewNodes.includes(r.node)?r.episodes?.find(e=>e.node==='qualification')?.entered:r.episodes?.at(-1)?.entered;
+  function reviewEpisodes(records){
+    return records.flatMap(record=>{
+      const rounds=[];let start=null,qualified=false;
+      for(const e of record.episodes||[]){
+        if(e.node==='qualification'){start=Number.isFinite(e.entered)?e.entered:null;qualified=false;}
+        if(!reviewNodes.includes(e.node)){start=null;qualified=false;continue;}
+        if(start===null||!Number.isFinite(e.exited)||e.exited<start)continue;
+        if(e.node==='qualification'&&e.result==='完成')qualified=true;
+        if(e.result==='驳回'||e.node==='sample'&&qualified&&e.result==='完成'){
+          rounds.push({...e,node:'review',entered:start,record,hours:(e.exited-start)/3600000});start=null;qualified=false;
+        }
+      }
+      return rounds;
+    });
+  }
   const active=r=>!ended(r)&&r.outcome==='active'&&r.node!=='cooperation';
   const lossGroup=r=>r.reached?.cooperated?'after':r.historyComplete===false?null:'before';
   const inLoss=(r,range)=>ended(r)&&(range==='all'||!range||lossGroup(r)===range);
-  function ageBucket(r,asOf){const entered=r.episodes?.at(-1)?.entered;if(!Number.isFinite(entered))return null;const hours=(asOf-entered)/3600000;return hours<0?null:hours<24?0:hours<72?1:hours<=168?2:3;}
+  function ageBucket(r,asOf){const entered=waitingEntered(r);if(!Number.isFinite(entered))return null;const hours=(asOf-entered)/3600000;return hours<0?null:hours<24?0:hours<72?1:hours<=168?2:3;}
   function select(records,scope={},asOf){
     const {type='total',key='',value='',range='all'}=scope;
     const accounts=unique(records),applications=['loss-type','loss-stage','loss-reason','loss-all'].includes(type);
@@ -27,7 +44,7 @@
       case 'owner':rows=accounts.filter(r=>active(r)&&nodes[r.node]?.[1]===value);break;
       case 'backlog':rows=accounts.filter(r=>active(r)&&nodes[r.node]?.[0]===value);break;
       case 'age':rows=accounts.filter(r=>active(r)&&nodes[r.node]?.[0]===value&&ageBucket(r,asOf)===Number(key));break;
-      case 'node':rows=accounts.filter(r=>active(r)&&r.node===key);break;
+      case 'node':rows=accounts.filter(r=>active(r)&&(key==='review'?reviewNodes.includes(r.node):r.node===key));break;
       case 'group':rows=accounts.filter(r=>(r[key]||'—')===value);break;
       case 'group-ended':rows=accounts.filter(r=>ended(r)&&(r[key]||'—')===value);break;
       case 'loss-type':rows=base.filter(r=>key==='pending'?r.outcome==='unbinding':ended(r)&&lossGroup(r)===key);break;
@@ -89,7 +106,7 @@
   function route(scope={},chain='自主绑定KOC',records,asOf){
     let ids=[];
     switch(scope.type){
-      case 'node':ids=[scope.key];break;
+      case 'node':ids=scope.key==='review'?reviewNodes:[scope.key];break;
       case 'stock':ids=chain==='IP绑定KOC'&&scope.key==='ipPassed'?['uid']:Object.keys(buckets).filter(id=>buckets[id]===scope.key);break;
       case 'owner':ids=Object.keys(nodes).filter(id=>nodes[id][1]===scope.value&&id!=='cooperation');break;
       case 'backlog':case 'age':ids=originNodes[scope.value]||[];break;
@@ -122,5 +139,5 @@
     return (d.tab==='ipReview'?['ipReview','mentorIpReview'].includes(tab):d.tab===tab)&&(!d.sub||!sub||d.sub===sub);
   }
   function routeLabel(plan){return [...new Set(plan.targets.map(d=>d.label+(d.status?'（'+d.status+'）':'')))].join('；');}
-  globalThis.AnalysisDrill={select,describe,fromParams,unique,currentBucket,lossGroup,ageBucket,isEnded:ended,isActive:active,nodes,destinations,destination,ipNodeIds,originNodes,route,location,matchesDestination,routeLabel};
+  globalThis.AnalysisDrill={reviewNodes,waitingEntered,reviewEpisodes,select,describe,fromParams,unique,currentBucket,lossGroup,ageBucket,isEnded:ended,isActive:active,nodes,destinations,destination,ipNodeIds,originNodes,route,location,matchesDestination,routeLabel};
 })();
