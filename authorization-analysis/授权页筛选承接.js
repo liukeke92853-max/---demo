@@ -133,7 +133,7 @@
       }
     }
     paintSubtabs();
-    const notes=document.createElement('section');notes.className='prd-section';notes.innerHTML='<h3>新增｜分析页筛选承接</h3><p>从转化分析进入时，使用申请时间区间，并带入申请链路、来源、渠道、导师和IP筛选。切换状态节点仍保留带入条件；不以节点通过时间替换申请时间。清除分析筛选后恢复授权页原查询范围；返回分析保留原日期、链路和分析页签。当前明细范围按入口传入的状态、节点、停留时长、结束分类或原因取交集；缺少状态进入时间或发起环节的记录不猜测匹配。</p>';
+    const notes=document.createElement('section');notes.className='prd-section';notes.innerHTML='<h3>新增｜分析页筛选承接</h3><p>从转化分析进入时，使用申请时间区间，并带入KOC绑定模式、来源、渠道、导师和IP筛选。切换状态节点仍保留带入条件；不以节点通过时间替换申请时间。清除分析筛选后恢复授权页原查询范围；返回分析保留原日期、链路和分析页签。当前明细范围按入口传入的状态、节点、停留时长、结束分类或原因取交集；缺少状态进入时间或发起环节的记录不猜测匹配。</p>';
     const mapping=document.createElement('p');mapping.textContent='当前入口目标：'+AnalysisDrill.routeLabel(plan)+'。终止型申请驳回进入已驳回；IP或四件套驳回待修改分别保留在对应审核Tab；绑定失败进入绑定失败，已解绑进入已解绑。空结果不改变目标Tab；缺少原发起环节和进入时间时不反推。';notes.append(mapping);document.querySelector('#prd-notes').replaceChildren(notes);
     if(needsTabReveal){const tabs=document.querySelector('#tabs'),active=tabs.querySelector('.active');if(active){const a=active.getBoundingClientRect(),t=tabs.getBoundingClientRect();tabs.scrollLeft+=a.left-t.left-(t.width-a.width)/2;}needsTabReveal=false;}
   };
