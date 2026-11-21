@@ -52,3 +52,5 @@ dialog.drawer{width:min(640px,100vw)}
 
 /* 别名及机构ID提示 */
 .alias-line{display:flex;align-items:center;gap:5px;color:#7c8ba4;font-size:13px;margin-top:4px}.id-tip{position:relative;display:inline-block}.id-tip summary{list-style:none;cursor:pointer;color:#5579b5;font-size:11px;border:1px solid #aebdd5;border-radius:3px;padding:0 3px}.id-tip summary::-webkit-details-marker{display:none}.id-tip span{display:none;position:absolute;z-index:10;left:0;top:22px;white-space:nowrap;background:#303b50;color:#fff;padding:6px 9px;border-radius:4px}.id-tip[open] span,.id-tip:hover span,.id-tip:focus-within span{display:block}
+
+.alias-value{display:inline-block;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
