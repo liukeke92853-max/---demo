@@ -8,7 +8,7 @@
   const nodeLabels={review:'待审核',qualification:'资质审核',sample:'样片审核',mentor:'待分配导师',ipSubmit:'IP审核 · 待提交',ipReview:'IP审核 · 待审核',ipRevise:'IP审核 · 驳回待修改',account:'账号绑定',settlement:'结算绑定',fourSubmit:'四件套 · 待提交资料',fourReview:'四件套 · 待审核',fourRevise:'四件套 · 驳回待修改',uid:'UID绑定',cooperation:'已合作'};
   const currentBucket=r=>r.chain==='IP绑定KOC'&&r.node==='uid'?'ipPassed':buckets[r.node];
   const reviewNodes=['qualification','sample'];
-  const waitingEntered=r=>reviewNodes.includes(r.node)?r.episodes?.find(e=>e.node==='qualification')?.entered:r.episodes?.at(-1)?.entered;
+  const waitingEntered=r=>reviewNodes.includes(r.node)?r.episodes?.findLast(e=>e.node==='qualification')?.entered:r.episodes?.at(-1)?.entered;
   function reviewEpisodes(records){
     return records.flatMap(record=>{
       const rounds=[];let start=null,qualified=false;
