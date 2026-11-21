@@ -1,5 +1,8 @@
 /* 仅用于需求评审的固定模拟数据；所有图表与明细均从这些申请事件计算。 */
-const AS_OF = Date.parse('2026-11-05T18:00:00+08:00');
+// 仅模拟已完成的每日数据批次；页面打开后使用同一个截止时刻。
+const REPORT_TODAY = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const REPORT_DATA_DATE = new Date(Date.parse(REPORT_TODAY+'T00:00:00Z')-86400000).toISOString().slice(0,10);
+const AS_OF = Date.parse(REPORT_DATA_DATE+'T23:59:59.999+08:00');
 const HOUR = 3600000;
 const DAY = 24 * HOUR;
 const nodeDefs = {

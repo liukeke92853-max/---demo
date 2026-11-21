@@ -74,6 +74,7 @@ function restoreFilters(){
 function buildTable(head,rows){return `<table class="data-table"><thead><tr>${head.map(h=>`<th>${h} ${help(h)} ${mark}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${head.length}">${empty()}</td></tr>`}</tbody></table>`;}
 function render(){
   hideHelp();
+  $('#snapshot-date').textContent=REPORT_DATA_DATE;
   model=calculate(state.filters);
   const total=model.accounts.length;
   const cards=[['total','申请账号数','申请记录 '+model.records.length+' 条 '+help('申请记录数')],['mcn',state.filters.chain==='IP绑定KOC'?'已绑定完成':'MCN绑定完成',state.filters.chain==='IP绑定KOC'?'后台已绑定成功':'账号及结算均已完成'],['cooperation','已合作转化','曾进入已合作'],['processing','当前处理中','含解绑处理中'],['ended','当前已结束','按本批最新申请判断']];
@@ -144,7 +145,8 @@ function applyFilters(){
   const next=Object.fromEntries(Object.keys(defaults).map(k=>[k,$('#'+k).value]));
   if(!next.start||!next.end){$('#filter-error').textContent='请选择完整的申请日期范围';return;}
   if(next.start>next.end){$('#filter-error').textContent='开始日期不能晚于结束日期';return;}
-  if(next.end>'2026-11-05'){$('#filter-error').textContent='结束日期不能晚于统计截止日期';return;}
+  if(next.start>=REPORT_TODAY||next.end>=REPORT_TODAY){$('#filter-error').textContent='不支持查询当日及未来数据，请选择昨日或更早日期';return;}
+  if(next.start>REPORT_DATA_DATE||next.end>REPORT_DATA_DATE){$('#filter-error').textContent='最晚可查询日期为'+REPORT_DATA_DATE;return;}
   $('#filter-error').textContent='';state.filters=next;render();
 }
 function ruleHTML(key){const rule=ruleSections[key];return `<article><h2>${rule.title} ${mark}</h2>${rule.sections.map(([title,body])=>`<h3>${title}</h3>${Array.isArray(body)?`<div class="table-scroll"><table class="data-table"><tbody>${body.map(([field,desc])=>`<tr><td style="width:180px"><b>${esc(field)}</b></td><td>${esc(desc)}</td></tr>`).join('')}</tbody></table></div>`:`<p>${esc(body)}</p>`}`).join('')}</article>`;}
@@ -168,7 +170,8 @@ document.addEventListener('click',e=>{
   if(tab){state.tab=tab.dataset.tab;render();return;}
 
 });
-restoreFilters();applyFilters();
+$('#start').max=REPORT_DATA_DATE;$('#end').max=REPORT_DATA_DATE;
+restoreFilters();render();applyFilters();
 
 document.addEventListener('pointerover',event=>{const trigger=event.target.closest('.metric-help');if(trigger&&event.pointerType!=='touch')showHelp(trigger);if(tooltip.contains(event.target))clearTimeout(helpTimer);});
 document.addEventListener('pointerout',event=>{const trigger=event.target.closest('.metric-help');if((trigger||tooltip.contains(event.target))&&!trigger?.contains(event.relatedTarget)&&!tooltip.contains(event.relatedTarget))deferHelpClose();});
