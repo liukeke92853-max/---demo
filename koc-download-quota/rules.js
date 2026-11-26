@@ -5,7 +5,7 @@ window.QuotaRules=Object.freeze({
  monthlyMax:10000,
  initialDate:'2026-11-25',
  defaultPeriod:'day',
- quotaHelp:Object.freeze(['按KOC所属机构＋IP共享，同一共享范围的KOC显示相同额度。','剩余＝基础额度＋本周期有效追加－已用。']),
+ quotaHelp:Object.freeze(['按KOC所属机构＋IP共享，同一共享范围的KOC显示相同额度。','今日、本月均显示已用／总额度，单位为分钟。','总额度＝基础额度＋本周期有效追加；已用达到或超过总额度时标红。']),
  periodLabel:period=>period==='day'?'今日':'当月',
  completeStage:mode=>mode==='self'?'cooperated':'bound',
  stages:{
